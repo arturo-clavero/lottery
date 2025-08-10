@@ -1,6 +1,12 @@
 [profile.default]
 src = "src"
 out = "out"
+gas_reports = ["Lottery"]
 libs = ["lib"]
+remappings = [
+  "@chainlink/=lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/",
+  "@openzeppelin/=lib/foundry-chainlink-toolkit/lib/openzeppelin-contracts/",
+  "@solady/=lib/solady/src"
+]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
