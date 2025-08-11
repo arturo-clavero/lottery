@@ -67,7 +67,7 @@ contract LotteryTest is Test {
     }
     //constructor:
 
-    function testConstructor() external view {
+    function testConstructor() external {
         assertEq(lottery.i_entryPrice(), LotteryConstants.ENTRY_PRICE);
         assertEq(lottery.i_length(), LotteryConstants.LENGTH);
         assertEq(lottery.i_gracePeriod(), LotteryConstants.GRACE_PERIOD);

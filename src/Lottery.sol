@@ -3,8 +3,9 @@ pragma solidity ^0.8.13;
 
 import {SafeTransferLib} from "@solady/utils/SafeTransferLib.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 
-contract Lottery is ReentrancyGuard {
+contract Lottery is ReentrancyGuard, AutomationCompatibleInterface {
     uint256 public immutable i_entryPrice;
     uint256 public immutable i_length;
     uint256 private entryDeadline;
@@ -12,6 +13,11 @@ contract Lottery is ReentrancyGuard {
     uint256 public immutable i_gracePeriod;
     address[] private players;
     mapping(address => uint256) private pending_payouts;
+    //AUTOMATION
+    uint256 public counter;
+    uint256 public immutable interval;
+    uint256 public lastTimeStamp;
+    //
 
     error Lottery__invalidPrice(uint256 amount);
     error Lottery__alreadyEnded();
@@ -27,10 +33,29 @@ contract Lottery is ReentrancyGuard {
         i_entryPrice = entryPrice;
         i_length = length;
         i_gracePeriod = gracePeriod;
+        //AUTOMATION
+        interval = length;
+        lastTimeStamp = block.timestamp;
+        //
         startLottery();
     }
 
+    //AUTOMATION
+    function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory) {
+        // upkeepNeeded = (block.timestamp - lastTimeStamp) > interval;
+        upkeepNeeded = isLotteryOver();
+    }
+
+    function performUpkeep(bytes calldata) external override {
+        // if ((block.timestamp - lastTimeStamp) > interval) {
+        //     lastTimeStamp = block.timestamp;
+        //     counter = counter + 1;
+        // }
+        payWinner();
+    }
+    //
     //* for unit tests only *//
+
     function getEntryDeadline() external view returns (uint256) {
         return entryDeadline;
     }
@@ -50,7 +75,19 @@ contract Lottery is ReentrancyGuard {
         players.push(msg.sender);
     }
 
-    function payWinner() external nonReentrant {
+    function winnerFallbackWithdrawal() external nonReentrant {
+        uint256 price = pending_payouts[msg.sender];
+        if (price == 0) {
+            revert Lottery__noWinningsToWithdraw();
+        }
+
+        delete pending_payouts[msg.sender];
+
+        SafeTransferLib.safeTransferETH(payable(msg.sender), price);
+        emit WinnerWithdrawnPrice(msg.sender, price);
+    }
+
+    function payWinner() public nonReentrant {
         if (isLotteryOver() == false) {
             revert Lottery__notOver();
         }
@@ -66,18 +103,6 @@ contract Lottery is ReentrancyGuard {
         } else {
             emit WinnerPaidPrice(winner, price);
         }
-    }
-
-    function winnerFallbackWithdrawal() external nonReentrant {
-        uint256 price = pending_payouts[msg.sender];
-        if (price == 0) {
-            revert Lottery__noWinningsToWithdraw();
-        }
-
-        delete pending_payouts[msg.sender];
-
-        SafeTransferLib.safeTransferETH(payable(msg.sender), price);
-        emit WinnerWithdrawnPrice(msg.sender, price);
     }
 
     function isLotteryOver() public view returns (bool) {
