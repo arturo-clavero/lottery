@@ -21,8 +21,11 @@ interface AutomationRegistrarInterface {
 }
 
 contract MockRegistrar {
-    function registerUpkeep(RegistrationParams calldata requestParams) external returns (uint256) {
-        return 123;
+    uint256 public uppKeepId = 1;
+
+    function registerUpkeep(RegistrationParams calldata) external returns (uint256) {
+        uppKeepId++;
+        return uppKeepId;
     }
 }
 
@@ -30,16 +33,22 @@ contract Register {
     LinkTokenInterface public immutable i_link;
     AutomationRegistrarInterface public immutable i_registrar;
 
+    error Register__approveFailed();
+
     constructor(LinkTokenInterface link, AutomationRegistrarInterface registrar) {
         i_link = link;
         i_registrar = registrar;
     }
 
     function registerAndPredictID(RegistrationParams memory params) public {
-        i_link.approve(address(i_registrar), params.amount);
+        bool success = i_link.approve(address(i_registrar), params.amount);
+        if (success == false) {
+            revert Register__approveFailed();
+        }
+        require(success, "Approve failed");
         uint256 upkeepID = i_registrar.registerUpkeep(params);
         if (upkeepID == 0) {
-            revert("auto-approve disabled");
+            revert Register__approveFailed();
         }
     }
 }

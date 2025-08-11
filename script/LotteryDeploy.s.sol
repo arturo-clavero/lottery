@@ -13,6 +13,7 @@ contract LotteryDeploy is Script {
     Lottery public lottery;
     Register public register;
     NetworkConfig public config;
+    address public owner;
 
     error Lottery__autoApproveDisabled();
 
@@ -22,31 +23,13 @@ contract LotteryDeploy is Script {
         }
         vm.startBroadcast();
 
-        // register = new Register(
-        //     LinkTokenInterface(0x779877A7B0D9E8603169DdbD7836e478b4624789),
-        //     AutomationRegistrarInterface(0xb0E49c5D0d05cbc241d68c05BC5BA1d1B7B72976)
-        // );
         register = new Register(
             LinkTokenInterface(config.i_linkTokenAddress()), AutomationRegistrarInterface(config.i_registrarAddress())
         );
 
         lottery = new Lottery(LotteryConstants.ENTRY_PRICE, LotteryConstants.LENGTH, LotteryConstants.GRACE_PERIOD);
         config.updateUpkeepContract(address(lottery));
-        //
-        //    RegistrationParams memory params = RegistrationParams({
-        //     name: "test upkeep",
-        //     encryptedEmail: "",
-        //     upkeepContract: address(lottery),
-        //     gasLimit: 500000,
-        //     adminAddress: msg.sender,
-        //     triggerType: 0,
-        //     checkData: "",
-        //     triggerConfig: "",
-        //     offchainConfig: "",
-        //     amount: 1000000000000000000
-        // });
 
-        // register.registerAndPredictID(params);
         register.registerAndPredictID(config.getRegisterParams());
 
         vm.stopBroadcast();

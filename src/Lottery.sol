@@ -13,11 +13,6 @@ contract Lottery is ReentrancyGuard, AutomationCompatibleInterface {
     uint256 public immutable i_gracePeriod;
     address[] private players;
     mapping(address => uint256) private pending_payouts;
-    //AUTOMATION
-    uint256 public counter;
-    uint256 public immutable interval;
-    uint256 public lastTimeStamp;
-    //
 
     error Lottery__invalidPrice(uint256 amount);
     error Lottery__alreadyEnded();
@@ -33,28 +28,16 @@ contract Lottery is ReentrancyGuard, AutomationCompatibleInterface {
         i_entryPrice = entryPrice;
         i_length = length;
         i_gracePeriod = gracePeriod;
-        //AUTOMATION
-        interval = length;
-        lastTimeStamp = block.timestamp;
-        //
         startLottery();
     }
 
-    //AUTOMATION
     function checkUpkeep(bytes calldata) external view override returns (bool upkeepNeeded, bytes memory) {
-        // upkeepNeeded = (block.timestamp - lastTimeStamp) > interval;
         upkeepNeeded = isLotteryOver();
     }
 
     function performUpkeep(bytes calldata) external override {
-        // if ((block.timestamp - lastTimeStamp) > interval) {
-        //     lastTimeStamp = block.timestamp;
-        //     counter = counter + 1;
-        // }
         payWinner();
     }
-    //
-    //* for unit tests only *//
 
     function getEntryDeadline() external view returns (uint256) {
         return entryDeadline;
@@ -63,7 +46,6 @@ contract Lottery is ReentrancyGuard, AutomationCompatibleInterface {
     function getPickWinnerDeadline() external view returns (uint256) {
         return pickWinnerDeadline;
     }
-    //* end unit tests only *//
 
     function enterLottery() external payable {
         if (msg.value != i_entryPrice) {
