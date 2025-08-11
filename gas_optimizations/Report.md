@@ -1,7 +1,3 @@
-Got it! Here’s the cleaned-up, professional, and fully integrated report combining your earlier style, the SLOAD optimizations from cases 2–4, and the last scenarios you gave me (combined reverts, private attributes, events, fixed vs dynamic arrays):
-
----
-
 # Gas Optimization & Test Results Report — *Lottery.sol*
 
 **Date:** 2025-08-11
