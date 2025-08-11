@@ -7,10 +7,10 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 contract Lottery is ReentrancyGuard {
     uint256 public immutable i_entryPrice;
     uint256 public immutable i_length;
-    uint256 public entryDeadline;
-    uint256 public pickWinnerDeadline;
+    uint256 private entryDeadline;
+    uint256 private pickWinnerDeadline;
     uint256 public immutable i_gracePeriod;
-    address[] public players;
+    address[] private players;
     mapping(address => uint256) private pending_payouts;
 
     error Lottery__invalidPrice(uint256 amount);
@@ -22,7 +22,6 @@ contract Lottery is ReentrancyGuard {
     event WinnerPaidPrice(address indexed winner, uint256 price);
     event WinnerInvalidPayment(address indexed winner, uint256 price);
     event WinnerWithdrawnPrice(address indexed winner, uint256 price);
-    event NewLotteryStarted();
 
     constructor(uint256 entryPrice, uint256 length, uint256 gracePeriod) {
         i_entryPrice = entryPrice;
@@ -30,6 +29,16 @@ contract Lottery is ReentrancyGuard {
         i_gracePeriod = gracePeriod;
         startLottery();
     }
+
+    //* for unit tests only *//
+    function getEntryDeadline() external view returns (uint256) {
+        return entryDeadline;
+    }
+
+    function getPickWinnerDeadline() external view returns (uint256) {
+        return pickWinnerDeadline;
+    }
+    //* end unit tests only *//
 
     function enterLottery() external payable {
         if (msg.value != i_entryPrice) {
@@ -45,10 +54,9 @@ contract Lottery is ReentrancyGuard {
         if (isLotteryOver() == false) {
             revert Lottery__notOver();
         }
-        // address winner;
-        address winner = get_winner_address();
-        uint256 price = players.length * i_entryPrice;
-        //is this a safe way to calculate price ?
+        uint256 playersLength = players.length;
+        address winner = get_winner_address(playersLength);
+        uint256 price = playersLength * i_entryPrice;
         startLottery();
 
         (bool success,) = payable(winner).call{value: price}("");
@@ -66,8 +74,6 @@ contract Lottery is ReentrancyGuard {
             revert Lottery__noWinningsToWithdraw();
         }
 
-        //check which is cheaper in gas opt
-        // pending_payouts[msg.sender] = 0;
         delete pending_payouts[msg.sender];
 
         SafeTransferLib.safeTransferETH(payable(msg.sender), price);
@@ -85,19 +91,18 @@ contract Lottery is ReentrancyGuard {
     }
 
     function startLottery() private {
-        players = new address[](0);
-        //check is delete players cheaper....
+        delete players;
 
-        entryDeadline = block.timestamp + i_length;
-        pickWinnerDeadline = entryDeadline + i_gracePeriod;
-        emit NewLotteryStarted();
+        uint256 cacheEntryDeadline = block.timestamp + i_length;
+        pickWinnerDeadline = cacheEntryDeadline + i_gracePeriod;
+        entryDeadline = cacheEntryDeadline;
     }
 
-    function get_winner_address() public view returns (address) {
-        if (players.length < 2) {
+    function get_winner_address(uint256 playersLength) public view returns (address) {
+        if (playersLength < 2) {
             revert Lottery__notEnoughPlayers();
         }
-        return players[getRandomNumber() % players.length];
+        return players[getRandomNumber() % playersLength];
     }
 
     function getRandomNumber() private pure returns (uint256) {
@@ -107,5 +112,4 @@ contract Lottery is ReentrancyGuard {
     function getTotalPlayers() external view returns (uint256) {
         return players.length;
     }
-
 }
