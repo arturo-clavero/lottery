@@ -7,6 +7,8 @@ import {IVRFCoordinatorV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/inter
 import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {Lottery} from "./Lottery.sol";
+import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+
 /**
  * Request testnet LINK and ETH here: https://faucets.chain.link/
  * Find information on LINK Token Contracts and get the latest ETH and LINK faucets here: https://docs.chain.link/docs/link-token-contracts/
@@ -24,33 +26,6 @@ contract VRFv2PlusSubscriptionManager is VRFConsumerBaseV2Plus {
     uint16 private immutable i_requestConfirmations = 3;
     uint32 private immutable i_numWords = 2;
     Lottery lottery;
-
-    // Sepolia coordinator. For other networks,
-    // see https://docs.chain.link/docs/vrf/v2-5/subscription-supported-networks#configurations
-    // address public vrfCoordinatorV2Plus =
-    //     0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B;
-
-    // Sepolia LINK token contract. For other networks, see
-    // https://docs.chain.link/docs/vrf-contracts/#configurations
-    // address public link_token_contract =
-    //     0x779877A7B0D9E8603169DdbD7836e478b4624789;
-
-    // The gas lane to use, which specifies the maximum gas price to bump to.
-    // For a list of available gas lanes on each network,
-    // see https://docs.chain.link/docs/vrf/v2-5/subscription-supported-networks#configurations
-    // bytes32 public keyHash =
-    //     0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae;
-
-    // A reasonable default is 100000, but this value could be different
-    // on other networks.
-    // uint32 public callbackGasLimit = 100000;
-
-    // The default is 3, but you can set this higher.
-    // uint16 public requestConfirmations = 3;
-
-    // For this example, retrieve 2 random values in one request.
-    // Cannot exceed VRFCoordinatorV2.MAX_NUM_WORDS.
-    // uint32 public numWords = 2;
 
     // Storage parameters
     uint256[] public s_randomWords;
@@ -72,7 +47,7 @@ contract VRFv2PlusSubscriptionManager is VRFConsumerBaseV2Plus {
         i_requestConfirmations = requestConfirmations;
         i_numWords = numWords;
         //Create a new subscription when you deploy the contract.
-        _createNewSubscription();
+       _createNewSubscription();
     }
 
     // Assumes the subscription is funded sufficiently.
@@ -105,6 +80,12 @@ contract VRFv2PlusSubscriptionManager is VRFConsumerBaseV2Plus {
     // 1000000000000000000 = 1 LINK
     function topUpSubscription(uint256 amount) internal onlyOwner {
         I_LINKTOKEN.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subscriptionId));
+    }
+
+    function mockTopUpSubscription(uint256 amount) internal onlyOwner {
+        VRFCoordinatorV2_5Mock(address(s_vrfCoordinator)).fundSubscription(s_subscriptionId, amount);
+
+        // s_vrfCoordinator.fundSubscription(s_subscriptionId, amount);
     }
 
     function addConsumer(address consumerAddress) external onlyOwner {

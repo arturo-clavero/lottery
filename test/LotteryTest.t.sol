@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import {Lottery} from "../src/Lottery.sol";
+import {LotteryMockTest} from "./mocks/LotteryMock.sol";
 import {LotteryDeploy} from "../script/LotteryDeploy.s.sol";
 import {LotteryConstants} from "../src/lib/LotteryConstants.sol";
 import "forge-std/Vm.sol";
@@ -28,11 +29,13 @@ contract RejectEth {
 }
 
 contract LotteryTest is Test {
-    Lottery public lottery;
-    address public owner;
+    Lottery public lotteryReal;
+    LotteryMockTest public lottery;
+    address public owner = vm.addr(2);
     address public user = vm.addr(1);
     address[] public players;
     RejectEth[] public rejectionPlayers;
+    uint256 [] public fakeRandomWords;
     uint256 price;
 
     event WinnerWithdrawnPrice(address indexed winner, uint256 price);
@@ -50,27 +53,28 @@ contract LotteryTest is Test {
                 player = address(rejector);
             }
             players.push(player);
-            vm.deal(player, lottery.i_entryPrice());
+            vm.deal(player, lottery.getEntryPrice());
             vm.startPrank(player);
-            lottery.enterLottery{value: lottery.i_entryPrice()}();
+            lottery.enterLottery{value: lottery.getEntryPrice()}();
             vm.stopPrank();
             vm.deal(player, 0);
         }
-        price = lottery.getTotalPlayers() * lottery.i_entryPrice();
+        price = lottery.getTotalPlayers() * lottery.getEntryPrice();
         _;
     }
 
     function setUp() external {
         LotteryDeploy lotteryDeploy = new LotteryDeploy();
-        lottery = lotteryDeploy.run();
-        owner = msg.sender;
+        lottery = lotteryDeploy.runTest();
+        lotteryReal = lotteryDeploy.run();
+        // owner = msg.sender;
     }
     //constructor:
 
     function testConstructor() external view {
-        assertEq(lottery.i_entryPrice(), LotteryConstants.ENTRY_PRICE);
-        assertEq(lottery.i_length(), LotteryConstants.LENGTH);
-        assertEq(lottery.i_gracePeriod(), LotteryConstants.GRACE_PERIOD);
+        assertEq(lottery.getEntryPrice(), LotteryConstants.ENTRY_PRICE);
+        assertEq(lottery.getLength(), LotteryConstants.LENGTH);
+        assertEq(lottery.getGracePeriod(), LotteryConstants.GRACE_PERIOD);
     }
 
     //enter lottery:
@@ -93,7 +97,7 @@ contract LotteryTest is Test {
 
     function testEnterLotteryAtDeadline() external {
         uint256 amount = LotteryConstants.ENTRY_PRICE;
-        skip(lottery.getEntryDeadline());
+        skip(lottery.getEntryDeadline() - block.timestamp);
         hoax(user, amount);
         vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__alreadyEnded.selector));
         lottery.enterLottery{value: amount}();
@@ -105,29 +109,63 @@ contract LotteryTest is Test {
         hoax(user, amount);
         lottery.enterLottery{value: amount}();
         assertEq(lottery.getTotalPlayers(), 1);
-        // assertEq(address(lottery.players(0]), user);
     }
 
     //is lottery over:
 
     function testIsLotteryOverNoPlayers() external {
-        skip(lottery.getPickWinnerDeadline());
-        bool success = lottery.isLotteryOver();
+        skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
+        (bool success, bytes memory data) = lottery.checkUpkeep("");        
         assertFalse(success);
+        vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__notOver.selector));
+        vm.prank(owner);
+        lottery.performUpkeep("");
         assertEq(lottery.getTotalPlayers(), 0);
     }
 
     function testIsLotteryOverTooSoon() external enterLottery(2, true) {
-        skip(lottery.getPickWinnerDeadline() - 2);
-        bool success = lottery.isLotteryOver();
+        skip(lottery.getPickWinnerDeadline() - block.timestamp - 1);
+         (bool success, bytes memory data) = lottery.checkUpkeep("");        
         assertFalse(success);
+        vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__notOver.selector));
+        vm.prank(owner);
+        lottery.performUpkeep("");
     }
 
     function testIsLotteryOverTrue() public enterLottery(2, true) {
-        skip(lottery.getPickWinnerDeadline());
-        bool success = lottery.isLotteryOver();
+        skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
+        (bool success, bytes memory data) = lottery.checkUpkeep("");        
         assertTrue(success);
+        vm.prank(owner);
+        lottery.performUpkeep("");
     }
+
+    function testPerformUpkeepCanNotBeCalledByNonOwner() public enterLottery(2, true) {
+        skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
+        vm.expectRevert(bytes("Only callable by owner"));
+        lottery.performUpkeep("");
+    }
+
+    function testRequestRandomWords() public enterLottery(2, true){
+        skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
+        vm.prank(owner);
+        lottery.performUpkeep("");
+        uint256 requestId = lottery.s_requestId();
+        fakeRandomWords.push(1);
+        lottery.testFulfillRandomWords(fakeRandomWords);
+    // // 4️⃣ Simulate VRF callback
+    // uint256 ;
+    // randomWords[0] = 1; // pick winner index
+    // vrfMock.callBackWithRandomWords(requestId, address(lottery), randomWords);
+    }
+    //test winner
+
+    // function testWinner() public enterLottery(2, true) {
+    //     skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
+    //     bool success = lottery.checkUpkeep();
+    //     assertTrue(success);
+    //     lottery.performUpkeep(null);
+    // }
     //get winner address:
 
     // function testGetWinnerAddress() external enterLottery(2, true) {
@@ -144,7 +182,7 @@ contract LotteryTest is Test {
     //pay winner:
 
     // function testPayWinnerTrue() public enterLottery(2, true) {
-    //     skip(lottery.getPickWinnerDeadline());
+    //     skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
     //     vm.recordLogs();
     //     hoax(vm.addr(1), 10 ether);
     //     lottery.payWinner();
@@ -185,7 +223,7 @@ contract LotteryTest is Test {
     // }
 
     // function testPayWinnerInvalidTransfer() external enterLottery(2, false) {
-    //     skip(lottery.getPickWinnerDeadline());
+    //     skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
     //     vm.recordLogs();
     //     hoax(vm.addr(1), 10 ether);
     //     lottery.payWinner();
@@ -237,7 +275,7 @@ contract LotteryTest is Test {
 
     //winner withdraws:
     // function find_winner() public returns (address) {
-    //     skip(lottery.getPickWinnerDeadline());
+    //     skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
     //     vm.recordLogs();
     //     hoax(user, 10);
     //     lottery.payWinner();

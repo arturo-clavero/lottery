@@ -8,9 +8,11 @@ import {MockRegistrar, RegistrationParams} from "../src/Register.sol";
 import {VRFv2PlusSubscriptionManager} from "../src/VRFSubscriptionManager.sol";
 import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkToken.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
+// import {VRFCoordinatorV2Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol";
 
 contract NetworkConfig is Script {
     uint256 public chainId;
+    bool public immutable i_isLocalAnvil = false;
     //automation :
     RegistrationParams public registerParams;
     address public immutable i_registrarAddress;
@@ -22,6 +24,7 @@ contract NetworkConfig is Script {
     uint32 public immutable i_callbackGasLimit;
     uint16 public immutable REQUEST_CONFIRMATIONS = 3;
     uint32 public constant NUM_WORDS = 1;
+    address public immutable owner;
     // VRFv2PlusSubscriptionManager private immutable s_manager;
     // Deploy the SubscriptionManager contract.
     // On deployment, the contract creates a new subscription and adds itself as a consumer to the new subscription.
@@ -29,6 +32,7 @@ contract NetworkConfig is Script {
 
     constructor() {
         chainId = block.chainid;
+        owner = msg.sender;
         registerParams = RegistrationParams({
             name: "test upkeep",
             encryptedEmail: "",
@@ -59,12 +63,18 @@ contract NetworkConfig is Script {
             int256 weiPerUnitLink = 1e18; // 1 LINK = 1 ETH
             i_registrarAddress = address(new MockRegistrar());
             i_linkTokenAddress = address(new LinkToken());
+            // i_vrfCoordinatorV2PlusAddress = address(new VRFCoordinatorV2Mock(baseFee, gasPrice));
             i_vrfCoordinatorV2PlusAddress = address(new VRFCoordinatorV2_5Mock(baseFee, gasPrice, weiPerUnitLink));
             i_keyHash = LotteryConstants.KEYHASH_LOCAL;
             i_callbackGasLimit = LotteryConstants.CALLBACK_GAS_LIMIT_ANVIL;
+            i_isLocalAnvil = true;
+            LinkToken(i_linkTokenAddress).grantMintRole(address(this));
+            LinkToken(i_linkTokenAddress).mint(address(this), 100 ether);
         }
     }
-
+    function mintLinkToken(address receiver) external {
+        LinkToken(i_linkTokenAddress).mint(receiver, 100 ether);
+    }
     function updateUpkeepContract(address newAddress) external {
         registerParams.upkeepContract = newAddress;
     }

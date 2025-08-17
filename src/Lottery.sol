@@ -6,18 +6,21 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 // import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/automation/AutomationCompatible.sol";
 import {VRFv2PlusSubscriptionManager} from "./VRFSubscriptionManager.sol";
+import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkToken.sol";
 
-contract Lottery is ReentrancyGuard, AutomationCompatibleInterface, VRFv2PlusSubscriptionManager {
+contract Lottery is
+    ReentrancyGuard,
+    AutomationCompatibleInterface,
+    VRFv2PlusSubscriptionManager
+{
     uint256 private constant SUBSCRIPTION_AMOUNT = 5;
-    uint256 public immutable i_entryPrice;
-    uint256 public immutable i_length;
-    uint256 private entryDeadline;
-    uint256 private pickWinnerDeadline;
-    uint256 public immutable i_gracePeriod;
+    uint256 internal immutable i_entryPrice;
+    uint256 internal immutable i_length;
+    uint256 internal entryDeadline;
+    uint256 internal pickWinnerDeadline;
+    uint256 internal immutable i_gracePeriod;
 
-    uint256 private requestId;
-
-    address[] private players;
+    address[] internal players;
     mapping(address => uint256) private pending_payouts;
     mapping(uint256 => address) private s_requests;
 
@@ -54,7 +57,11 @@ contract Lottery is ReentrancyGuard, AutomationCompatibleInterface, VRFv2PlusSub
         i_entryPrice = entryPrice;
         i_length = length;
         i_gracePeriod = gracePeriod;
-        topUpSubscription(SUBSCRIPTION_AMOUNT);
+    }
+
+    function fundAndStartLottery(address token, address sender, uint256 amount) external {
+        LinkToken(token).transferFrom(sender, address(this),  amount);
+        mockTopUpSubscription(SUBSCRIPTION_AMOUNT);
         startLottery();
     }
 
@@ -84,7 +91,9 @@ contract Lottery is ReentrancyGuard, AutomationCompatibleInterface, VRFv2PlusSub
         return true;
     }
 
-    function checkUpkeep(bytes calldata) external view override returns (bool, bytes memory) {
+    function checkUpkeep(
+        bytes calldata
+    ) external view override returns (bool, bytes memory) {
         return (isLotteryOver(), "");
     }
 
@@ -95,13 +104,16 @@ contract Lottery is ReentrancyGuard, AutomationCompatibleInterface, VRFv2PlusSub
         requestRandomWords();
     }
 
-    function fulfillRandomWords(uint256, /* requestId */ uint256[] calldata randomWords) internal override {
+    function fulfillRandomWords(
+        uint256,
+        /* requestId */ uint256[] calldata randomWords
+    ) internal override {
         uint256 playersLength = players.length;
         address winner = players[randomWords[0] % playersLength];
         uint256 price = playersLength * i_entryPrice;
         startLottery();
 
-        (bool success,) = payable(winner).call{value: price}("");
+        (bool success, ) = payable(winner).call{value: price}("");
         if (!success) {
             pending_payouts[winner] += price;
             emit WinnerInvalidPayment(winner, price);
@@ -120,17 +132,5 @@ contract Lottery is ReentrancyGuard, AutomationCompatibleInterface, VRFv2PlusSub
 
         SafeTransferLib.safeTransferETH(payable(msg.sender), price);
         emit WinnerWithdrawnPrice(msg.sender, price);
-    }
-
-    function getEntryDeadline() external view returns (uint256) {
-        return entryDeadline;
-    }
-
-    function getPickWinnerDeadline() external view returns (uint256) {
-        return pickWinnerDeadline;
-    }
-
-    function getTotalPlayers() external view returns (uint256) {
-        return players.length;
     }
 }
