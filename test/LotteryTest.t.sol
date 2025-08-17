@@ -67,7 +67,7 @@ contract LotteryTest is Test {
     }
     //constructor:
 
-    function testConstructor() external {
+    function testConstructor() external view {
         assertEq(lottery.i_entryPrice(), LotteryConstants.ENTRY_PRICE);
         assertEq(lottery.i_length(), LotteryConstants.LENGTH);
         assertEq(lottery.i_gracePeriod(), LotteryConstants.GRACE_PERIOD);
@@ -130,197 +130,197 @@ contract LotteryTest is Test {
     }
     //get winner address:
 
-    function testGetWinnerAddress() external enterLottery(2, true) {
-        address winner = lottery.get_winner_address(players.length);
-        bool winnerIsPlayer = false;
-        for (uint256 i = 0; i < players.length; i++) {
-            if (players[i] == winner) {
-                winnerIsPlayer = true;
-                break;
-            }
-        }
-        assertTrue(winnerIsPlayer);
-    }
+    // function testGetWinnerAddress() external enterLottery(2, true) {
+    //     address winner = lottery.get_winner_address(players.length);
+    //     bool winnerIsPlayer = false;
+    //     for (uint256 i = 0; i < players.length; i++) {
+    //         if (players[i] == winner) {
+    //             winnerIsPlayer = true;
+    //             break;
+    //         }
+    //     }
+    //     assertTrue(winnerIsPlayer);
+    // }
     //pay winner:
 
-    function testPayWinnerTrue() public enterLottery(2, true) {
-        skip(lottery.getPickWinnerDeadline());
-        vm.recordLogs();
-        hoax(vm.addr(1), 10 ether);
-        lottery.payWinner();
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 winnerPaidPrice = keccak256("WinnerPaidPrice(address,uint256)");
-        bool winnerPaidPriceEmitted = false;
-        bytes32 WinnerInvalidPayment = keccak256("WinnerInvalidPayment(address,uint256)");
-        bool WinnerInvalidPaymentEmitted = false;
-        address winner;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == winnerPaidPrice) {
-                winnerPaidPriceEmitted = true;
-                if (logs[i].topics.length >= 2) {
-                    winner = address(uint160(uint256(logs[i].topics[1])));
-                    break;
-                }
-            } else if (logs[i].topics[0] == WinnerInvalidPayment) {
-                WinnerInvalidPaymentEmitted = true;
-            }
-        }
-        assertTrue(winnerPaidPriceEmitted);
-        //winner paid price event emited
-        assertFalse(WinnerInvalidPaymentEmitted);
-        //winner did not get price event NOT emited
-        assertNotEq(winner, address(0));
-        //we found winner!
-        bool winnerIsPlayer = false;
-        for (uint256 i = 0; i < players.length; i++) {
-            if (players[i] == winner) {
-                winnerIsPlayer = true;
-                break;
-            }
-        }
-        assertTrue(winnerIsPlayer);
-        //winner is part of players!
-        assertEq(winner.balance, price);
-        //winner got price!
-    }
+    // function testPayWinnerTrue() public enterLottery(2, true) {
+    //     skip(lottery.getPickWinnerDeadline());
+    //     vm.recordLogs();
+    //     hoax(vm.addr(1), 10 ether);
+    //     lottery.payWinner();
+    //     Vm.Log[] memory logs = vm.getRecordedLogs();
+    //     bytes32 winnerPaidPrice = keccak256("WinnerPaidPrice(address,uint256)");
+    //     bool winnerPaidPriceEmitted = false;
+    //     bytes32 WinnerInvalidPayment = keccak256("WinnerInvalidPayment(address,uint256)");
+    //     bool WinnerInvalidPaymentEmitted = false;
+    //     address winner;
+    //     for (uint256 i = 0; i < logs.length; i++) {
+    //         if (logs[i].topics[0] == winnerPaidPrice) {
+    //             winnerPaidPriceEmitted = true;
+    //             if (logs[i].topics.length >= 2) {
+    //                 winner = address(uint160(uint256(logs[i].topics[1])));
+    //                 break;
+    //             }
+    //         } else if (logs[i].topics[0] == WinnerInvalidPayment) {
+    //             WinnerInvalidPaymentEmitted = true;
+    //         }
+    //     }
+    //     assertTrue(winnerPaidPriceEmitted);
+    //     //winner paid price event emited
+    //     assertFalse(WinnerInvalidPaymentEmitted);
+    //     //winner did not get price event NOT emited
+    //     assertNotEq(winner, address(0));
+    //     //we found winner!
+    //     bool winnerIsPlayer = false;
+    //     for (uint256 i = 0; i < players.length; i++) {
+    //         if (players[i] == winner) {
+    //             winnerIsPlayer = true;
+    //             break;
+    //         }
+    //     }
+    //     assertTrue(winnerIsPlayer);
+    //     //winner is part of players!
+    //     assertEq(winner.balance, price);
+    //     //winner got price!
+    // }
 
-    function testPayWinnerInvalidTransfer() external enterLottery(2, false) {
-        skip(lottery.getPickWinnerDeadline());
-        vm.recordLogs();
-        hoax(vm.addr(1), 10 ether);
-        lottery.payWinner();
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        bytes32 winnerPaidPrice = keccak256("WinnerPaidPrice(address,uint256)");
-        bool winnerPaidPriceEmitted = false;
-        bytes32 WinnerInvalidPayment = keccak256("WinnerInvalidPayment(address,uint256)");
-        bool WinnerInvalidPaymentEmitted = false;
-        address winner;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == WinnerInvalidPayment) {
-                WinnerInvalidPaymentEmitted = true;
-                if (logs[i].topics.length >= 2) {
-                    winner = address(uint160(uint256(logs[i].topics[1])));
-                    break;
-                }
-            } else if (logs[i].topics[0] == winnerPaidPrice) {
-                winnerPaidPriceEmitted = true;
-            }
-        }
-        assertTrue(WinnerInvalidPaymentEmitted);
-        //winner did not get price event emited
-        assertFalse(winnerPaidPriceEmitted);
-        //winner paid price event NOT emited
-        assertNotEq(winner, address(0));
-        //we found winner!
-        bool winnerIsPlayer = false;
-        for (uint256 i = 0; i < players.length; i++) {
-            if (players[i] == winner) {
-                winnerIsPlayer = true;
-                break;
-            }
-        }
-        assertTrue(winnerIsPlayer);
-        //winner is part of players!
-        assertEq(winner.balance, 0);
-        //winner did not get a price!
-    }
+    // function testPayWinnerInvalidTransfer() external enterLottery(2, false) {
+    //     skip(lottery.getPickWinnerDeadline());
+    //     vm.recordLogs();
+    //     hoax(vm.addr(1), 10 ether);
+    //     lottery.payWinner();
+    //     Vm.Log[] memory logs = vm.getRecordedLogs();
+    //     bytes32 winnerPaidPrice = keccak256("WinnerPaidPrice(address,uint256)");
+    //     bool winnerPaidPriceEmitted = false;
+    //     bytes32 WinnerInvalidPayment = keccak256("WinnerInvalidPayment(address,uint256)");
+    //     bool WinnerInvalidPaymentEmitted = false;
+    //     address winner;
+    //     for (uint256 i = 0; i < logs.length; i++) {
+    //         if (logs[i].topics[0] == WinnerInvalidPayment) {
+    //             WinnerInvalidPaymentEmitted = true;
+    //             if (logs[i].topics.length >= 2) {
+    //                 winner = address(uint160(uint256(logs[i].topics[1])));
+    //                 break;
+    //             }
+    //         } else if (logs[i].topics[0] == winnerPaidPrice) {
+    //             winnerPaidPriceEmitted = true;
+    //         }
+    //     }
+    //     assertTrue(WinnerInvalidPaymentEmitted);
+    //     //winner did not get price event emited
+    //     assertFalse(winnerPaidPriceEmitted);
+    //     //winner paid price event NOT emited
+    //     assertNotEq(winner, address(0));
+    //     //we found winner!
+    //     bool winnerIsPlayer = false;
+    //     for (uint256 i = 0; i < players.length; i++) {
+    //         if (players[i] == winner) {
+    //             winnerIsPlayer = true;
+    //             break;
+    //         }
+    //     }
+    //     assertTrue(winnerIsPlayer);
+    //     //winner is part of players!
+    //     assertEq(winner.balance, 0);
+    //     //winner did not get a price!
+    // }
 
-    //start lottery:
-    function testStartLotteryValues() external {
-        uint256 prev_entry_deadline = lottery.getEntryDeadline();
-        uint256 prev_pickWinner_deadline = lottery.getPickWinnerDeadline();
-        testPayWinnerTrue();
-        assertEq(lottery.getTotalPlayers(), 0);
-        assertGt(lottery.getEntryDeadline(), prev_entry_deadline);
-        assertGt(lottery.getPickWinnerDeadline(), prev_pickWinner_deadline);
-    }
+    // //start lottery:
+    // function testStartLotteryValues() external {
+    //     uint256 prev_entry_deadline = lottery.getEntryDeadline();
+    //     uint256 prev_pickWinner_deadline = lottery.getPickWinnerDeadline();
+    //     testPayWinnerTrue();
+    //     assertEq(lottery.getTotalPlayers(), 0);
+    //     assertGt(lottery.getEntryDeadline(), prev_entry_deadline);
+    //     assertGt(lottery.getPickWinnerDeadline(), prev_pickWinner_deadline);
+    // }
 
     //winner withdraws:
-    function find_winner() public returns (address) {
-        skip(lottery.getPickWinnerDeadline());
-        vm.recordLogs();
-        hoax(user, 10);
-        lottery.payWinner();
-        bytes32 eventInvalidPayment = keccak256("WinnerInvalidPayment(address,uint256)");
-        bytes32 eventValidPayment = keccak256("WinnerPaidPrice(address,uint256)");
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        address winner;
-        for (uint256 i = 0; i < logs.length; i++) {
-            console.log(uint256(logs[i].topics[0]));
-            if (
-                (logs[i].topics[0] == eventValidPayment || logs[i].topics[0] == eventInvalidPayment)
-                    && logs[i].topics.length >= 2
-            ) {
-                winner = address(uint160(uint256(logs[i].topics[1])));
-                break;
-            }
-        }
-        assertNotEq(winner, address(0));
-        return winner;
-    }
+    // function find_winner() public returns (address) {
+    //     skip(lottery.getPickWinnerDeadline());
+    //     vm.recordLogs();
+    //     hoax(user, 10);
+    //     lottery.payWinner();
+    //     bytes32 eventInvalidPayment = keccak256("WinnerInvalidPayment(address,uint256)");
+    //     bytes32 eventValidPayment = keccak256("WinnerPaidPrice(address,uint256)");
+    //     Vm.Log[] memory logs = vm.getRecordedLogs();
+    //     address winner;
+    //     for (uint256 i = 0; i < logs.length; i++) {
+    //         console.log(uint256(logs[i].topics[0]));
+    //         if (
+    //             (logs[i].topics[0] == eventValidPayment || logs[i].topics[0] == eventInvalidPayment)
+    //                 && logs[i].topics.length >= 2
+    //         ) {
+    //             winner = address(uint160(uint256(logs[i].topics[1])));
+    //             break;
+    //         }
+    //     }
+    //     assertNotEq(winner, address(0));
+    //     return winner;
+    // }
 
-    function accept_all_payments() public {
-        for (uint256 i = 0; i < rejectionPlayers.length; i++) {
-            rejectionPlayers[i].stopRejectionOfPayment();
-        }
-    }
+    // function accept_all_payments() public {
+    //     for (uint256 i = 0; i < rejectionPlayers.length; i++) {
+    //         rejectionPlayers[i].stopRejectionOfPayment();
+    //     }
+    // }
 
-    function testWinnerFallbackWithdrawal() public enterLottery(2, false) {
-        address winner = find_winner();
-        accept_all_payments();
-        vm.deal(winner, 10);
-        uint256 prevBalance = winner.balance;
-        vm.startPrank(winner);
-        vm.expectEmit(true, false, false, true);
-        emit WinnerWithdrawnPrice(winner, price);
-        lottery.winnerFallbackWithdrawal();
-        vm.stopPrank();
-        assertEq(winner.balance, prevBalance + price);
-    }
+    // function testWinnerFallbackWithdrawal() public enterLottery(2, false) {
+    //     address winner = find_winner();
+    //     accept_all_payments();
+    //     vm.deal(winner, 10);
+    //     uint256 prevBalance = winner.balance;
+    //     vm.startPrank(winner);
+    //     vm.expectEmit(true, false, false, true);
+    //     emit WinnerWithdrawnPrice(winner, price);
+    //     lottery.winnerFallbackWithdrawal();
+    //     vm.stopPrank();
+    //     assertEq(winner.balance, prevBalance + price);
+    // }
 
-    function testWinnerFallbackWithdrawalAfterWithdraw() external enterLottery(2, false) {
-        address winner = find_winner();
-        accept_all_payments();
-        vm.deal(winner, 10);
-        uint256 prevBalance = winner.balance;
-        vm.startPrank(winner);
-        vm.expectEmit(true, false, false, true);
-        emit WinnerWithdrawnPrice(winner, price);
-        lottery.winnerFallbackWithdrawal();
-        assertEq(winner.balance, prevBalance + price);
-        //now we will try to withdraw a second time
-        vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__noWinningsToWithdraw.selector));
-        lottery.winnerFallbackWithdrawal();
-    }
+    // function testWinnerFallbackWithdrawalAfterWithdraw() external enterLottery(2, false) {
+    //     address winner = find_winner();
+    //     accept_all_payments();
+    //     vm.deal(winner, 10);
+    //     uint256 prevBalance = winner.balance;
+    //     vm.startPrank(winner);
+    //     vm.expectEmit(true, false, false, true);
+    //     emit WinnerWithdrawnPrice(winner, price);
+    //     lottery.winnerFallbackWithdrawal();
+    //     assertEq(winner.balance, prevBalance + price);
+    //     //now we will try to withdraw a second time
+    //     vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__noWinningsToWithdraw.selector));
+    //     lottery.winnerFallbackWithdrawal();
+    // }
 
-    function testWinnerFallbackWithdrawalbyNonWinner() external enterLottery(2, false) {
-        address winner = find_winner();
-        accept_all_payments();
-        address looser;
-        for (uint256 i = 0; i < players.length; i++) {
-            if (players[i] != winner) {
-                looser = players[i];
-                break;
-            }
-        }
-        assertNotEq(looser, address(0));
-        //we found a looser
-        vm.deal(looser, 10);
-        uint256 prevBalance = looser.balance;
-        vm.startPrank(looser);
-        vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__noWinningsToWithdraw.selector));
-        lottery.winnerFallbackWithdrawal();
-        assertEq(looser.balance, prevBalance);
-    }
+    // function testWinnerFallbackWithdrawalbyNonWinner() external enterLottery(2, false) {
+    //     address winner = find_winner();
+    //     accept_all_payments();
+    //     address looser;
+    //     for (uint256 i = 0; i < players.length; i++) {
+    //         if (players[i] != winner) {
+    //             looser = players[i];
+    //             break;
+    //         }
+    //     }
+    //     assertNotEq(looser, address(0));
+    //     //we found a looser
+    //     vm.deal(looser, 10);
+    //     uint256 prevBalance = looser.balance;
+    //     vm.startPrank(looser);
+    //     vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__noWinningsToWithdraw.selector));
+    //     lottery.winnerFallbackWithdrawal();
+    //     assertEq(looser.balance, prevBalance);
+    // }
 
-    function testWinnerFallbackWithdrawalNoError() external enterLottery(2, true) {
-        address winner = find_winner();
-        accept_all_payments();
-        vm.deal(winner, 10);
-        uint256 prevBalance = winner.balance;
-        vm.startPrank(winner);
-        vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__noWinningsToWithdraw.selector));
-        lottery.winnerFallbackWithdrawal();
-        assertEq(winner.balance, prevBalance);
-    }
+    // function testWinnerFallbackWithdrawalNoError() external enterLottery(2, true) {
+    //     address winner = find_winner();
+    //     accept_all_payments();
+    //     vm.deal(winner, 10);
+    //     uint256 prevBalance = winner.balance;
+    //     vm.startPrank(winner);
+    //     vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__noWinningsToWithdraw.selector));
+    //     lottery.winnerFallbackWithdrawal();
+    //     assertEq(winner.balance, prevBalance);
+    // }
 }

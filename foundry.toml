@@ -4,9 +4,11 @@ out = "out"
 gas_reports = ["Lottery"]
 libs = ["lib"]
 remappings = [
-  "@chainlink/=lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/",
-  "@openzeppelin/=lib/foundry-chainlink-toolkit/lib/openzeppelin-contracts/",
-  "@solady/=lib/solady/src"
+  "@chainlink=lib/chainlink-evm",
+  "@solady=lib/solady/src",
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "@openzeppelin/contracts@4.8.3/=lib/openzeppelin-contracts/contracts/",
+  "@openzeppelin/contracts/utils/structs/EnumerableSet.sol=@openzeppelin/contracts/utils/EnumerableSet.sol",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

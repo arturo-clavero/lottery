@@ -1,6 +1,12 @@
-[submodule "lib/foundry-chainlink-toolkit"]
-	path = lib/foundry-chainlink-toolkit
-	url = https://github.com/smartcontractkit/foundry-chainlink-toolkit
 [submodule "lib/solady"]
 	path = lib/solady
-	url = https://github.com/vectorized/solady
+	url = https://github.com/Vectorized/solady
+[submodule "lib/chainlink-evm"]
+	path = lib/chainlink-evm
+	url = https://github.com/smartcontractkit/chainlink-evm
+[submodule "lib/openzeppelin-contracts"]
+	path = lib/openzeppelin-contracts
+	url = https://github.com/openzeppelin/openzeppelin-contracts
+[submodule "lib/forge-std"]
+	path = lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
