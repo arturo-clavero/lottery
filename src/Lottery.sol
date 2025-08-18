@@ -8,20 +8,15 @@ import {AutomationCompatibleInterface} from "@chainlink/contracts/src/v0.8/autom
 import {VRFv2PlusSubscriptionManager} from "./VRFSubscriptionManager.sol";
 import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkToken.sol";
 
-contract Lottery is
-    ReentrancyGuard,
-    AutomationCompatibleInterface,
-    VRFv2PlusSubscriptionManager
-{
-    uint256 private constant SUBSCRIPTION_AMOUNT = 5;
+contract Lottery is ReentrancyGuard, AutomationCompatibleInterface, VRFv2PlusSubscriptionManager {
     uint256 internal immutable i_entryPrice;
     uint256 internal immutable i_length;
     uint256 internal entryDeadline;
     uint256 internal pickWinnerDeadline;
     uint256 internal immutable i_gracePeriod;
-
+    bool internal funded;
     address[] internal players;
-    mapping(address => uint256) private pending_payouts;
+    mapping(address => uint256) internal pending_payouts;
     mapping(uint256 => address) private s_requests;
 
     error Lottery__invalidPrice(uint256 amount);
@@ -29,9 +24,8 @@ contract Lottery is
     error Lottery__notOver();
     error Lottery__noWinningsToWithdraw();
     error Lottery__notEnoughPlayers();
+    error Lottery__alreadyInitialized();
 
-    event WinnerPaidPrice(address indexed winner, uint256 price);
-    event WinnerInvalidPayment(address indexed winner, uint256 price);
     event WinnerWithdrawnPrice(address indexed winner, uint256 price);
 
     constructor(
@@ -59,13 +53,17 @@ contract Lottery is
         i_gracePeriod = gracePeriod;
     }
 
-    function fundAndStartLottery(address token, address sender, uint256 amount) external {
-        LinkToken(token).transferFrom(sender, address(this),  amount);
-        mockTopUpSubscription(SUBSCRIPTION_AMOUNT);
+    function fundAndStartLottery(address token, uint256 amount) external virtual {
+        if (funded == true) {
+            revert Lottery__alreadyInitialized();
+        }
+        funded = true;
+        LinkToken(token).transferFrom(msg.sender, address(this), amount);
+        topUpSubscription(amount);
         startLottery();
     }
 
-    function startLottery() private {
+    function startLottery() internal {
         delete players;
 
         uint256 cacheEntryDeadline = block.timestamp + i_length;
@@ -91,9 +89,7 @@ contract Lottery is
         return true;
     }
 
-    function checkUpkeep(
-        bytes calldata
-    ) external view override returns (bool, bytes memory) {
+    function checkUpkeep(bytes calldata) external view override returns (bool, bytes memory) {
         return (isLotteryOver(), "");
     }
 
@@ -106,19 +102,17 @@ contract Lottery is
 
     function fulfillRandomWords(
         uint256,
-        /* requestId */ uint256[] calldata randomWords
-    ) internal override {
+        /* requestId */
+        uint256[] calldata randomWords
+    ) internal virtual override {
         uint256 playersLength = players.length;
         address winner = players[randomWords[0] % playersLength];
         uint256 price = playersLength * i_entryPrice;
         startLottery();
 
-        (bool success, ) = payable(winner).call{value: price}("");
+        (bool success,) = payable(winner).call{value: price}("");
         if (!success) {
             pending_payouts[winner] += price;
-            emit WinnerInvalidPayment(winner, price);
-        } else {
-            emit WinnerPaidPrice(winner, price);
         }
     }
 

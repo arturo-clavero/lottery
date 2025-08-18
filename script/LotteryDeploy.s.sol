@@ -15,7 +15,7 @@ contract LotteryDeploy is Script {
     LotteryMockTest public lotteryMock;
     Register public register;
     NetworkConfig public config;
-    address deployer = vm.addr(2);
+    address deployer = vm.addr(LotteryConstants.DEPLOYER);
 
     function run() public returns (Lottery) {
         _setUp();
@@ -34,18 +34,16 @@ contract LotteryDeploy is Script {
             config = new NetworkConfig();
         }
 
-
-        // Register
         register = new Register(
-            LinkTokenInterface(config.i_linkTokenAddress()),
-            AutomationRegistrarInterface(config.i_registrarAddress())
+            LinkTokenInterface(config.i_linkTokenAddress()), AutomationRegistrarInterface(config.i_registrarAddress())
         );
 
-        if (config.i_isLocalAnvil() == true)
+        if (config.i_isLocalAnvil() == true) {
             vm.roll(1);
+        } //pass createsubscription (else current block n - 1 underflows)
     }
 
-    function _deploy() internal returns(Lottery){
+    function _deploy() internal returns (Lottery) {
         Lottery deployed = new Lottery(
             LotteryConstants.ENTRY_PRICE,
             LotteryConstants.LENGTH,
@@ -57,16 +55,20 @@ contract LotteryDeploy is Script {
             config.REQUEST_CONFIRMATIONS(),
             config.NUM_WORDS()
         );
-        // LinkToken(config.i_linkTokenAddress()).approve(address(deployed), type(uint256).max);
-        // deployed.fundAndStartLottery(config.i_linkTokenAddress(), LotteryConstants.MIN_LINK_AMOUNT);
+
+        config.mintLinkToken(deployer);
+        LinkToken(config.i_linkTokenAddress()).approve(address(deployed), LotteryConstants.MIN_LINK_AMOUNT);
+        deployed.fundAndStartLottery(config.i_linkTokenAddress(), LotteryConstants.MIN_LINK_AMOUNT);
+
+        vm.stopBroadcast();
+
         config.updateUpkeepContract(address(deployed));
         register.registerAndPredictID(config.getRegisterParams());
-        vm.stopBroadcast();
+
         return deployed;
     }
 
-    function _deployMock() internal returns (LotteryMockTest){
-        address owner = msg.sender;
+    function _deployMock() internal returns (LotteryMockTest) {
         LotteryMockTest deployedMock = new LotteryMockTest(
             LotteryConstants.ENTRY_PRICE,
             LotteryConstants.LENGTH,
@@ -78,23 +80,16 @@ contract LotteryDeploy is Script {
             config.REQUEST_CONFIRMATIONS(),
             config.NUM_WORDS()
         );
+
+        config.mintLinkToken(deployer);
+        LinkToken(config.i_linkTokenAddress()).approve(address(deployedMock), LotteryConstants.MIN_LINK_AMOUNT);
+        deployedMock.fundAndStartLottery(config.i_linkTokenAddress(), LotteryConstants.MIN_LINK_AMOUNT);
+
         vm.stopBroadcast();
-        vm.startPrank(address(config));
-        config.mintLinkToken(deployer); // mint to deployer/owner
-        vm.stopPrank();
-        // LinkToken(config.i_linkTokenAddress()).approve(address(config), type(uint256).max);
-        // vm.startPrank(owner);
-        // LinkToken(config.i_linkTokenAddress()).transferFrom(owner, address(deployedMock),  LotteryConstants.MIN_LINK_AMOUNT);
-        // vm.stopPrank();
-        // vm.prank(owner);
-        vm.startBroadcast(deployer);
-        LinkToken(config.i_linkTokenAddress()).approve(address(deployedMock), LotteryConstants.MIN_LINK_AMOUNT * 2);
-        deployedMock.fundAndStartLottery(config.i_linkTokenAddress(), deployer, LotteryConstants.MIN_LINK_AMOUNT);
-        vm.stopBroadcast();
-        // vm.stopPrank();
-        // deployedMock.fundAndStartLottery(LotteryConstants.MIN_LINK_AMOUNT);
+
         config.updateUpkeepContract(address(deployedMock));
         register.registerAndPredictID(config.getRegisterParams());
+
         return deployedMock;
     }
 }

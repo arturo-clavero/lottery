@@ -47,7 +47,7 @@ contract VRFv2PlusSubscriptionManager is VRFConsumerBaseV2Plus {
         i_requestConfirmations = requestConfirmations;
         i_numWords = numWords;
         //Create a new subscription when you deploy the contract.
-       _createNewSubscription();
+        _createNewSubscription();
     }
 
     // Assumes the subscription is funded sufficiently.

@@ -63,18 +63,22 @@ contract NetworkConfig is Script {
             int256 weiPerUnitLink = 1e18; // 1 LINK = 1 ETH
             i_registrarAddress = address(new MockRegistrar());
             i_linkTokenAddress = address(new LinkToken());
-            // i_vrfCoordinatorV2PlusAddress = address(new VRFCoordinatorV2Mock(baseFee, gasPrice));
             i_vrfCoordinatorV2PlusAddress = address(new VRFCoordinatorV2_5Mock(baseFee, gasPrice, weiPerUnitLink));
             i_keyHash = LotteryConstants.KEYHASH_LOCAL;
             i_callbackGasLimit = LotteryConstants.CALLBACK_GAS_LIMIT_ANVIL;
             i_isLocalAnvil = true;
             LinkToken(i_linkTokenAddress).grantMintRole(address(this));
-            LinkToken(i_linkTokenAddress).mint(address(this), 100 ether);
         }
     }
+
     function mintLinkToken(address receiver) external {
-        LinkToken(i_linkTokenAddress).mint(receiver, 100 ether);
+        if (i_isLocalAnvil) {
+            LinkToken(i_linkTokenAddress).mint(receiver, 100 ether);
+        }
+        // else
+        //     deal(i_linkTokenAddress, receiver, 100 ether);
     }
+
     function updateUpkeepContract(address newAddress) external {
         registerParams.upkeepContract = newAddress;
     }

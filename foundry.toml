@@ -10,5 +10,6 @@ remappings = [
   "@openzeppelin/contracts@4.8.3/=lib/openzeppelin-contracts/contracts/",
   "@openzeppelin/contracts/utils/structs/EnumerableSet.sol=@openzeppelin/contracts/utils/EnumerableSet.sol",
 ]
+dotenv = ".env"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import {Lottery} from "../../src/Lottery.sol";
+import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkToken.sol";
 
-contract LotteryMockTest is Lottery{
-
+contract LotteryMockTest is Lottery {
     constructor(
         uint256 entryPrice_,
         uint256 length_,
@@ -15,24 +15,49 @@ contract LotteryMockTest is Lottery{
         uint32 callbackGasLimit_,
         uint16 requestConfirmations_,
         uint32 numWords_
-    ) Lottery(
-        entryPrice_,
-        length_,
-        gracePeriod_,
-        linkToken_,
-        vrfCoordinatorV2Plus_,
-        keyHash_,
-        callbackGasLimit_,
-        requestConfirmations_,
-        numWords_
-    ) {
-    }
+    )
+        Lottery(
+            entryPrice_,
+            length_,
+            gracePeriod_,
+            linkToken_,
+            vrfCoordinatorV2Plus_,
+            keyHash_,
+            callbackGasLimit_,
+            requestConfirmations_,
+            numWords_
+        )
+    {}
+
+    event WinnerPaidPrice(address indexed winner, uint256 price);
+    event WinnerInvalidPayment(address indexed winner, uint256 price);
 
     function testFulfillRandomWords(uint256[] calldata randomWords) external {
-        fulfillRandomWords(0, randomWords);
+        uint256 playersLength = players.length;
+        address winner = players[randomWords[0] % playersLength];
+        uint256 price = playersLength * i_entryPrice;
+        startLottery();
+
+        (bool success,) = payable(winner).call{value: price}("");
+        if (!success) {
+            pending_payouts[winner] += price;
+            emit WinnerInvalidPayment(winner, price);
+        } else {
+            emit WinnerPaidPrice(winner, price);
+        }
     }
 
-     function getEntryDeadline() external view returns (uint256) {
+    function fundAndStartLottery(address token, uint256 amount) external override {
+        if (funded == true) {
+            revert Lottery__alreadyInitialized();
+        }
+        funded = true;
+        LinkToken(token).transferFrom(msg.sender, address(this), amount);
+        mockTopUpSubscription(amount);
+        startLottery();
+    }
+
+    function getEntryDeadline() external view returns (uint256) {
         return entryDeadline;
     }
 
@@ -52,8 +77,7 @@ contract LotteryMockTest is Lottery{
         return i_length;
     }
 
-    function getGracePeriod() external view returns (uint256){
+    function getGracePeriod() external view returns (uint256) {
         return i_gracePeriod;
     }
-
 }
