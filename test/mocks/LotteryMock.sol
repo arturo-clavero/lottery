@@ -53,7 +53,7 @@ contract LotteryMockTest is Lottery {
         }
         funded = true;
         LinkToken(token).transferFrom(msg.sender, address(this), amount);
-        mockTopUpSubscription(amount);
+      //  mockTopUpSubscription(amount); !
         startLottery();
     }
 

@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {Lottery} from "../src/Lottery.sol";
 import {LotteryMockTest} from "./mocks/LotteryMock.sol";
-import {LotteryDeploy} from "../script/LotteryDeploy.s.sol";
+import {LotteryMockDeploy} from "../script/LotteryMockDeploy.s.sol";
 import {LotteryConstants} from "../src/lib/LotteryConstants.sol";
 import "forge-std/Vm.sol";
 
@@ -29,27 +29,17 @@ contract RejectEth {
 }
 
 contract LotteryTest is Test {
-    Lottery public lotteryReal;
     uint256 public constant MAX_PLAYERS = 500;
     uint256 public constant MIN_PLAYERS = 2;
     LotteryMockTest public lottery;
-    address public immutable i_deployer = vm.addr(LotteryConstants.DEPLOYER);
     address public user = vm.addr(1);
     address[] public players;
     RejectEth[] public rejectionPlayers;
     uint256[] public fakeRandomWords;
     uint256 price;
+    address deployer;
 
     event WinnerWithdrawnPrice(address indexed winner, uint256 price);
-
-    function clampPlayerSize(uint256 nPlayers) private pure returns (uint256) {
-        if (nPlayers > MAX_PLAYERS) {
-            nPlayers = MAX_PLAYERS;
-        } else if (nPlayers < MIN_PLAYERS) {
-            nPlayers = MIN_PLAYERS;
-        }
-        return nPlayers;
-    }
 
     modifier enterLottery(uint256 total_players, bool playersAcceptTransfers) {
         players = new address[](0);
@@ -76,9 +66,9 @@ contract LotteryTest is Test {
     }
 
     function setUp() external {
-        LotteryDeploy lotteryDeploy = new LotteryDeploy();
-        lottery = lotteryDeploy.runTest();
-        // lotteryReal = lotteryDeploy.run();
+        deployer = get_deployer();
+        LotteryMockDeploy lotteryDeploy = new LotteryMockDeploy();
+        lottery = lotteryDeploy.run(deployer);
     }
 
     //constructor:
@@ -123,13 +113,12 @@ contract LotteryTest is Test {
     }
 
     //is lottery over:
-
     function testIsLotteryOverNoPlayers() external {
         skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
         (bool success, bytes memory data) = lottery.checkUpkeep("");
         assertFalse(success);
         vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__notOver.selector));
-        vm.prank(i_deployer);
+        vm.prank(deployer);
         lottery.performUpkeep("");
         assertEq(lottery.getTotalPlayers(), 0);
     }
@@ -139,7 +128,7 @@ contract LotteryTest is Test {
         (bool success, bytes memory data) = lottery.checkUpkeep("");
         assertFalse(success);
         vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__notOver.selector));
-        vm.prank(i_deployer);
+        vm.prank(deployer);
         lottery.performUpkeep("");
     }
 
@@ -147,7 +136,7 @@ contract LotteryTest is Test {
         skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
         (bool success, bytes memory data) = lottery.checkUpkeep("");
         assertTrue(success);
-        vm.prank(i_deployer);
+        vm.prank(deployer);
         lottery.performUpkeep("");
     }
 
@@ -157,12 +146,14 @@ contract LotteryTest is Test {
         lottery.performUpkeep("");
     }
 
+    //test VFR
+
     function testRandomWinnerIsPlayer(uint256 randomNum, uint256 randomPlayers)
         public
         enterLottery(randomPlayers, true)
     {
         skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
-        vm.prank(i_deployer);
+        vm.prank(deployer);
         lottery.performUpkeep("");
         fakeRandomWords.push(randomNum);
         vm.recordLogs();
@@ -179,12 +170,14 @@ contract LotteryTest is Test {
         assertTrue(winnerIsPlayer);
     }
 
+    //test winner default payment
+
     function testOnlyWinnerReceivePrice(uint256 randomNum, uint256 randomPlayers)
         public
         enterLottery(randomPlayers, true)
     {
         skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
-        vm.prank(i_deployer);
+        vm.prank(deployer);
         lottery.performUpkeep("");
         fakeRandomWords.push(randomNum);
         vm.recordLogs();
@@ -200,12 +193,14 @@ contract LotteryTest is Test {
         }
     }
 
+    //test winner fallback payment
+
     function testWinnerFailedToReceivePrice(uint256 randomNum, uint256 randomPlayers)
         public
         enterLottery(randomPlayers, false)
     {
         skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
-        vm.prank(i_deployer);
+        vm.prank(deployer);
         lottery.performUpkeep("");
         fakeRandomWords.push(randomNum);
         vm.recordLogs();
@@ -231,7 +226,7 @@ contract LotteryTest is Test {
         enterLottery(randomPlayers, true)
     {
         skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
-        vm.prank(i_deployer);
+        vm.prank(deployer);
         lottery.performUpkeep("");
         fakeRandomWords.push(randomNum);
         vm.recordLogs();
@@ -244,18 +239,18 @@ contract LotteryTest is Test {
         assertEq(winner.balance, winner_prev_balance);
     }
 
+    //test start lottery
     function testFundAndStartLotterySecondTime() external {
         vm.expectRevert(abi.encodeWithSelector(Lottery.Lottery__alreadyInitialized.selector));
         lottery.fundAndStartLottery(vm.addr(2), 1);
     }
 
-    //start lottery:
     function testStartLotteryValues() external enterLottery(2, true) {
         uint256 randomNum = 1;
         uint256 prev_entry_deadline = lottery.getEntryDeadline();
         uint256 prev_pickWinner_deadline = lottery.getPickWinnerDeadline();
         skip(lottery.getPickWinnerDeadline() - block.timestamp + 1);
-        vm.prank(i_deployer);
+        vm.prank(deployer);
         lottery.performUpkeep("");
         fakeRandomWords.push(randomNum);
         lottery.testFulfillRandomWords(fakeRandomWords);
@@ -314,4 +309,24 @@ contract LotteryTest is Test {
             rejectionPlayers[i].stopRejectionOfPayment();
         }
     }
+
+    function clampPlayerSize(uint256 nPlayers) private pure returns (uint256) {
+        if (nPlayers > MAX_PLAYERS) {
+            nPlayers = MAX_PLAYERS;
+        } else if (nPlayers < MIN_PLAYERS) {
+            nPlayers = MIN_PLAYERS;
+        }
+        return nPlayers;
+    }
+
+    function get_deployer() private pure returns (address){
+        if (block.chainid == LotteryConstants.CHAIN_ID_SEPOLIA){
+            return LotteryConstants.LINKWHALE_SEPOLIA;
+        }
+        else if (block.chainid == LotteryConstants.CHAIN_ID_ETHEREUM){
+            return LotteryConstants.LINKWHALE_ETHEREUM;
+        }
+        else return vm.addr(12);
+    }
+
 }

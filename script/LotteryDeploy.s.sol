@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import {Script, console} from "forge-std/Script.sol";
 import {Lottery} from "../src/Lottery.sol";
-import {LotteryMockTest} from "../test/mocks/LotteryMock.sol";
 import {Register, RegistrationParams, AutomationRegistrarInterface} from "../src/Register.sol";
 import {NetworkConfig} from "./NetworkConfig.s.sol";
 import {LotteryConstants} from "../src/lib/LotteryConstants.sol";
@@ -11,40 +10,18 @@ import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interface
 import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkToken.sol";
 
 contract LotteryDeploy is Script {
-    Lottery public lottery;
-    LotteryMockTest public lotteryMock;
-    Register public register;
-    NetworkConfig public config;
-    address deployer = vm.addr(LotteryConstants.DEPLOYER);
+    //mapping lottery to -> config address...
+    mapping(address=>address) private deployedContractsNotFunded;
+
+    error Deploy__noLotteryToFund();
 
     function run() public returns (Lottery) {
-        _setUp();
-        return _deploy();
-    }
-
-    function runTest() public returns (LotteryMockTest) {
-        _setUp();
-        return _deployMock();
-    }
-
-    function _setUp() internal {
-        vm.startBroadcast(deployer);
-
-        if (address(config) == address(0)) {
-            config = new NetworkConfig();
-        }
-
-        register = new Register(
+        vm.startBroadcast(msg.sender);
+        NetworkConfig config = new NetworkConfig();
+        Register register = new Register(
             LinkTokenInterface(config.i_linkTokenAddress()), AutomationRegistrarInterface(config.i_registrarAddress())
         );
-
-        if (config.i_isLocalAnvil() == true) {
-            vm.roll(1);
-        } //pass createsubscription (else current block n - 1 underflows)
-    }
-
-    function _deploy() internal returns (Lottery) {
-        Lottery deployed = new Lottery(
+        Lottery lottery = new Lottery(
             LotteryConstants.ENTRY_PRICE,
             LotteryConstants.LENGTH,
             LotteryConstants.GRACE_PERIOD,
@@ -55,41 +32,22 @@ contract LotteryDeploy is Script {
             config.REQUEST_CONFIRMATIONS(),
             config.NUM_WORDS()
         );
-
-        config.mintLinkToken(deployer);
-        LinkToken(config.i_linkTokenAddress()).approve(address(deployed), LotteryConstants.MIN_LINK_AMOUNT);
-        deployed.fundAndStartLottery(config.i_linkTokenAddress(), LotteryConstants.MIN_LINK_AMOUNT);
-
-        vm.stopBroadcast();
-
-        config.updateUpkeepContract(address(deployed));
+        config.updateUpkeepContract(address(lottery));
         register.registerAndPredictID(config.getRegisterParams());
-
-        return deployed;
+        vm.stopBroadcast();
+        deployedContractsNotFunded[address(lottery)] = address(config);
+        return lottery;
     }
 
-    function _deployMock() internal returns (LotteryMockTest) {
-        LotteryMockTest deployedMock = new LotteryMockTest(
-            LotteryConstants.ENTRY_PRICE,
-            LotteryConstants.LENGTH,
-            LotteryConstants.GRACE_PERIOD,
-            config.i_linkTokenAddress(),
-            config.i_vrfCoordinatorV2PlusAddress(),
-            config.i_keyHash(),
-            config.i_callbackGasLimit(),
-            config.REQUEST_CONFIRMATIONS(),
-            config.NUM_WORDS()
-        );
-
-        config.mintLinkToken(deployer);
-        LinkToken(config.i_linkTokenAddress()).approve(address(deployedMock), LotteryConstants.MIN_LINK_AMOUNT);
-        deployedMock.fundAndStartLottery(config.i_linkTokenAddress(), LotteryConstants.MIN_LINK_AMOUNT);
-
-        vm.stopBroadcast();
-
-        config.updateUpkeepContract(address(deployedMock));
-        register.registerAndPredictID(config.getRegisterParams());
-
-        return deployedMock;
+    //this function should be called by same user who called run,
+    // once they have min link amount minted to their account
+    function fundAndStartLottery(address lotteryAddress) external{
+        address configAddress = deployedContractsNotFunded[lotteryAddress];
+        if (configAddress == address(0) || NetworkConfig(configAddress).owner() != msg.sender)
+            revert Deploy__noLotteryToFund();
+        delete deployedContractsNotFunded[lotteryAddress];
+        address lintTokenAddress = NetworkConfig(configAddress).i_linkTokenAddress();
+        LinkToken(lintTokenAddress).approve(lotteryAddress, LotteryConstants.MIN_LINK_AMOUNT);
+        Lottery(lotteryAddress).fundAndStartLottery(lintTokenAddress, LotteryConstants.MIN_LINK_AMOUNT);
     }
 }
