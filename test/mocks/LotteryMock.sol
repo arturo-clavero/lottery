@@ -36,7 +36,7 @@ contract LotteryMockTest is Lottery, Test {
 
     //same as super.fulfillRandomWords(),
     // but we emit events for testing, unnecessary gas in real contract
-    // when forking sepolia we vm.deal() the price to the winner as call doesnt increase the balance of our fake address winner
+    // when forking sepolia/mainnet we vm.deal() the price to the winner as call doesnt increase the balance of our fake address winner
     function testFulfillRandomWords(uint256[] calldata randomWords) external {
         uint256 playersLength = players.length;
         address winner = players[randomWords[0] % playersLength];
@@ -49,7 +49,10 @@ contract LotteryMockTest is Lottery, Test {
             pending_payouts[winner] += price;
             emit WinnerInvalidPayment(winner, price);
         } else {
-            if (block.chainid == LotteryConstants.CHAIN_ID_SEPOLIA) {
+            if (
+                block.chainid == LotteryConstants.CHAIN_ID_SEPOLIA
+                    || block.chainid == LotteryConstants.CHAIN_ID_ETHEREUM
+            ) {
                 vm.deal(winner, price);
             }
             emit WinnerPaidPrice(winner, price);

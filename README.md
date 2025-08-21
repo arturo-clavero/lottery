@@ -1,66 +1,125 @@
-## Foundry
+# Lottery Smart Contract
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A decentralized, automated lottery contract on Ethereum (and testnets) leveraging **Chainlink VRF v2 Plus** for secure randomness and **Chainlink Automation** for fully automated winner selection. Built with safety in mind, using **ReentrancyGuard** and **SafeTransferLib**.
 
-Foundry consists of:
+---
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## Features
 
-## Documentation
+* **Secure randomness** via Chainlink VRF v2 Plus.
+* **Automated winner selection** via Chainlink Automation (no manual intervention needed).
+* **ETH payouts with fallback withdrawal** for failed transfers.
+* **Configurable lottery parameters**: entry price, lottery duration, and grace period.
+* **Supports ERC677 LINK funding** programmatically.
+* **Simple entry**: users just send the correct amount of ETH.
 
-https://book.getfoundry.sh/
+---
+
+## Installation
+
+```bash
+git clone <repo-url>
+cd lottery
+forge install
+```
+
+
+---
+
+## Deployment
+
+--> TODO
+
+---
+
+### Testing / Local Deploy
+Set up your `.env` file with the required RPC addresses for testing on sepolia and mainnent:
+
+```env
+RPC_MAINNET=<your_rpc_url>
+RPC_SEPOLIA=<your_rpc_url>
+```
+
+For testing locally, in sepolia fork and in mainnet fork:
+```bash
+make test
+```
+
+local testing only:
+```bash
+make test-local
+```
+
+sepolia testing only:
+```bash
+make test-sepolia
+```
+
+mainnet testing only:
+```bash
+make test-ethereum
+```
+
+* Foundry tests can simulate random words and automate ETH transfers.
+* **Important**: cheatcodes (`vm.deal`, `vm.prank`) are only available in tests and cannot be used in production contracts.
+
+---
 
 ## Usage
 
-### Build
+### Enter the Lottery
 
-```shell
-$ forge build
+Send exactly the entry price in ETH:
+
+```solidity
+lottery.enterLottery{value: entryPrice}();
 ```
 
-### Test
+### Winner Selection
 
-```shell
-$ forge test
+* Automatically triggered by Chainlink Automation when the lottery period ends.
+* Uses **Chainlink VRF v2 Plus** for a provably fair winner.
+
+### Withdraw Fallback
+
+If a direct ETH transfer fails:
+
+```solidity
+lottery.winnerFallbackWithdrawal();
 ```
 
-### Format
+---
 
-```shell
-$ forge fmt
-```
+## Events
 
-### Gas Snapshots
+* `WinnerWithdrawnPrice(address indexed winner, uint256 price)` – emitted on fallback withdrawal.
+* Other events are added for success/failure logging of winner payments in MockLottery for testing.
 
-```shell
-$ forge snapshot
-```
+---
 
-### Anvil
+## Security
 
-```shell
-$ anvil
-```
+* **ReentrancyGuard** protects against reentrancy attacks.
+* **SafeTransferLib** ensures safe ETH transfers, preventing stuck ETH in the contract.
+* ETH payouts are **atomic**, and any failed payments are recoverable via fallback withdrawal.
 
-### Deploy
+---
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+## Notes on Chainlink Integration
 
-### Cast
+1. **VRF v2 Plus**: provides secure randomness for winner selection.
+2. **Automation**: automates upkeep without external scripts.
+3. The contract can **programmatically**:
 
-```shell
-$ cast <subcommand>
-```
+   * Create VRF subscriptions
+   * Fund VRF subscriptions with LINK
+   * Register with Automation registry
+4. This reduces manual setup and ensures the lottery is fully autonomous once deployed.
 
-### Help
+---
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+## License
+
+Unlicensed (UNLICENSED).
+
+---
