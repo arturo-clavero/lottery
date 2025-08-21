@@ -69,9 +69,11 @@ contract LotteryTest is Test {
         LotteryMockDeploy lotteryDeploy = new LotteryMockDeploy();
         setDeployer();
         lottery = lotteryDeploy.run(deployer);
-        deal(lotteryDeploy.config().i_linkTokenAddress(), address(lotteryDeploy.register()), 1_000_000 ether);
-        lotteryDeploy.setRegister();
-        vm.allowCheatcodes(address(lottery));
+        address lotteryAddress = address(lottery);
+        address registerAddress = lotteryDeploy.deployRegister(lotteryAddress);
+        deal(lotteryDeploy.getConfig(lotteryAddress).i_linkTokenAddress(), registerAddress, 1_000_000 ether);
+        lotteryDeploy.setRegisterAfterFunding(lotteryAddress);
+        vm.allowCheatcodes(lotteryAddress);
     }
 
     //constructor:

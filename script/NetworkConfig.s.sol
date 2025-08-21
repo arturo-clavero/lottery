@@ -25,6 +25,7 @@ contract NetworkConfig is Script {
     uint16 public immutable REQUEST_CONFIRMATIONS = 3;
     uint32 public constant NUM_WORDS = 1;
     address public immutable owner;
+    address public registerAddress;
     // VRFv2PlusSubscriptionManager private immutable s_manager;
     // Deploy the SubscriptionManager contract.
     // On deployment, the contract creates a new subscription and adds itself as a consumer to the new subscription.
@@ -85,5 +86,9 @@ contract NetworkConfig is Script {
 
     function getRegisterParams() public view returns (RegistrationParams memory) {
         return registerParams;
+    }
+
+    function setRegisterAddress(address _registerAddress) external {
+        registerAddress = _registerAddress;
     }
 }

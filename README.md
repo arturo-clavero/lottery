@@ -23,16 +23,54 @@ cd lottery
 forge install
 ```
 
+---
+
+## Deploy Live
+
+Follow these steps to deploy and start the Lottery on a live network:
+
+### Prerequisites
+
+* Forge/Foundry installed
+* ETH for gas and LINK tokens for funding
+* `.env` with deployer private key
+
+### 1. Deploy Lottery and store its config
+
+```bash
+forge script script/LotteryDeploy.s.sol:LotteryDeploy --rpc-url <NETWORK_RPC_URL> --private-key $PRIVATE_KEY --broadcast
+```
+
+### 3. Deploy Register
+```solidity
+deployRegister(lotteryAddress)
+```
+* Returns the register address.
+
+### 4. Fund Register
+
+* Send at least `MIN_LINK_AMOUNT` of LINK to the Register address.
+
+### 5. Register the lottery with chainlink Automation
+
+```solidity
+setRegisterAfterFunding(lotteryAddress)
+```
+
+### 6. Fund and Start Lottery
+
+```solidity
+fundAndStartLottery(lotteryAddress)
+```
+
+* Approves LINK and starts the Lottery. Must be called by the deployer.
+
+> ⚠️ Follow steps in order: deploy Lottery → deploy Register → fund Register → initialize Register → fund & start Lottery.
 
 ---
 
-## Deployment
 
---> TODO
-
----
-
-### Testing / Local Deploy
+## Testing / Local Deploy
 Set up your `.env` file with the required RPC addresses for testing on sepolia and mainnent:
 
 ```env

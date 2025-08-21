@@ -14,13 +14,12 @@ contract LotteryDeploy is Script {
     mapping(address => address) private deployedContractsNotFunded;
 
     error Deploy__noLotteryToFund();
+    error Deploy__registerNotInitialiazed();
+    error Deploy__registerNotFunded();
 
     function run() public returns (Lottery) {
         vm.startBroadcast(msg.sender);
         NetworkConfig config = new NetworkConfig();
-        Register register = new Register(
-            LinkTokenInterface(config.i_linkTokenAddress()), AutomationRegistrarInterface(config.i_registrarAddress())
-        );
         Lottery lottery = new Lottery(
             LotteryConstants.ENTRY_PRICE,
             LotteryConstants.LENGTH,
@@ -33,21 +32,60 @@ contract LotteryDeploy is Script {
             config.NUM_WORDS()
         );
         config.updateUpkeepContract(address(lottery));
-        register.registerAndPredictID(config.getRegisterParams());
         vm.stopBroadcast();
         deployedContractsNotFunded[address(lottery)] = address(config);
         return lottery;
     }
 
+   
+    //call after run() ...
+    function deployRegister(address lotteryAddress) public returns (address) {
+        address configAddress = deployedContractsNotFunded[lotteryAddress];
+        if (configAddress == address(0)) {
+            revert Deploy__noLotteryToFund();
+        }
+        NetworkConfig config = NetworkConfig(configAddress);
+        Register register = new Register(
+            LinkTokenInterface(config.i_linkTokenAddress()), AutomationRegistrarInterface(config.i_registrarAddress())
+        );
+        address registerAddress = address(register);
+        config.setRegisterAddress(registerAddress);
+        return registerAddress;
+    }
+
+    //call after deployRegister() and funding the register address with Link Tokens
+    function setRegisterAfterFunding(address lotteryAddress) public {
+        address configAddress = deployedContractsNotFunded[lotteryAddress];
+        if (configAddress == address(0)) {
+            revert Deploy__noLotteryToFund();
+        }
+        NetworkConfig config = NetworkConfig(configAddress);
+        address registerAddress = config.registerAddress();
+        if (registerAddress == address(0)) {
+            revert Deploy__registerNotInitialiazed();
+        }
+        Register(registerAddress).registerAndPredictID(config.getRegisterParams());
+    }
+
     //this function should be called by same user who called run,
     // once they have min link amount minted to their account
-    function fundAndStartLottery(address lotteryAddress) external {
+    // and they have created and minted the register
+    function fundAndStartLottery(address lotteryAddress) external {    
         address configAddress = deployedContractsNotFunded[lotteryAddress];
         if (configAddress == address(0) || NetworkConfig(configAddress).owner() != msg.sender) {
             revert Deploy__noLotteryToFund();
         }
+        NetworkConfig config = NetworkConfig(configAddress);
+        address registerAddress = config.registerAddress();
+        if (registerAddress == address(0)) {
+            revert Deploy__registerNotInitialiazed();
+        }
+        if (registerAddress.balance == 0)
+        {
+            revert Deploy__registerNotFunded();
+        }
         delete deployedContractsNotFunded[lotteryAddress];
-        address lintTokenAddress = NetworkConfig(configAddress).i_linkTokenAddress();
+        address lintTokenAddress = config.i_linkTokenAddress();
         LinkToken(lintTokenAddress).approve(lotteryAddress, LotteryConstants.MIN_LINK_AMOUNT);
         Lottery(lotteryAddress).fundAndStartLottery(lintTokenAddress, LotteryConstants.MIN_LINK_AMOUNT);
     }
