@@ -19,7 +19,7 @@ contract LotteryMockDeploy is Script {
     function run(address deployer) public returns (LotteryMockTest) {
         vm.startBroadcast(deployer);
         NetworkConfig config = new NetworkConfig();
-        
+
         if (config.i_isLocalAnvil() == true) {
             vm.roll(1);
         } //pass createsubscription (else current block n - 1 underflows)
@@ -73,7 +73,7 @@ contract LotteryMockDeploy is Script {
             revert MockDeploy__registerNotInitialiazed();
         }
         Register(registerAddress).registerAndPredictID(config.getRegisterParams());
-        
+
         delete deployedContractsNotFunded[lotteryAddress];
     }
 

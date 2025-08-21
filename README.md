@@ -1,5 +1,7 @@
 # Lottery Smart Contract
 
+> All contracts are fully **unit tested**, **fuzz tested**, and **gas-optimized**. Reports available in `gas-optimizations/`.
+
 A decentralized, automated lottery contract on Ethereum (and testnets) leveraging **Chainlink VRF v2 Plus** for secure randomness and **Chainlink Automation** for fully automated winner selection. Built with safety in mind, using **ReentrancyGuard** and **SafeTransferLib**.
 
 ---
@@ -7,7 +9,7 @@ A decentralized, automated lottery contract on Ethereum (and testnets) leveragin
 ## Features
 
 * **Secure randomness** via Chainlink VRF v2 Plus.
-* **Automated winner selection** via Chainlink Automation (no manual intervention needed).
+* **Automated winner selection** via Chainlink Automation (no manual intervention).
 * **ETH payouts with fallback withdrawal** for failed transfers.
 * **Configurable lottery parameters**: entry price, lottery duration, and grace period.
 * **Supports ERC677 LINK funding** programmatically.
@@ -27,79 +29,69 @@ forge install
 
 ## Deploy Live
 
-Follow these steps to deploy and start the Lottery on a live network:
-
 ### Prerequisites
 
 * Forge/Foundry installed
 * ETH for gas and LINK tokens for funding
 * `.env` with deployer private key
 
-### 1. Deploy Lottery and store its config
+### Deployment Steps
+
+1. **Deploy Lottery and store its config**
 
 ```bash
 forge script script/LotteryDeploy.s.sol:LotteryDeploy --rpc-url <NETWORK_RPC_URL> --private-key $PRIVATE_KEY --broadcast
 ```
 
-### 3. Deploy Register
+2. **Deploy Register**
+
 ```solidity
 deployRegister(lotteryAddress)
 ```
-* Returns the register address.
 
-### 4. Fund Register
+*Returns the Register address.*
 
-* Send at least `MIN_LINK_AMOUNT` of LINK to the Register address.
+3. **Fund Register**
+   *Send at least `MIN_LINK_AMOUNT` of LINK to the Register address.*
 
-### 5. Register the lottery with chainlink Automation
+4. **Register the Lottery with Chainlink Automation**
 
 ```solidity
 setRegisterAfterFunding(lotteryAddress)
 ```
 
-### 6. Fund and Start Lottery
+5. **Fund and Start Lottery**
 
 ```solidity
 fundAndStartLottery(lotteryAddress)
 ```
 
-* Approves LINK and starts the Lottery. Must be called by the deployer.
+*Approves LINK and starts the Lottery. Must be called by the deployer.*
 
 > ⚠️ Follow steps in order: deploy Lottery → deploy Register → fund Register → initialize Register → fund & start Lottery.
 
 ---
 
-
 ## Testing / Local Deploy
-Set up your `.env` file with the required RPC addresses for testing on sepolia and mainnent:
+
+Set up your `.env` with the required RPC addresses:
 
 ```env
 RPC_MAINNET=<your_rpc_url>
 RPC_SEPOLIA=<your_rpc_url>
 ```
 
-For testing locally, in sepolia fork and in mainnet fork:
+Run tests:
+
 ```bash
-make test
+make test          # all networks
+make test-local    # local only
+make test-sepolia  # Sepolia fork only
+make test-ethereum # Mainnet fork only
 ```
 
-local testing only:
-```bash
-make test-local
-```
-
-sepolia testing only:
-```bash
-make test-sepolia
-```
-
-mainnet testing only:
-```bash
-make test-ethereum
-```
-
-* Foundry tests can simulate random words and automate ETH transfers.
-* **Important**: cheatcodes (`vm.deal`, `vm.prank`) are only available in tests and cannot be used in production contracts.
+* Foundry tests simulate random words and automate ETH transfers.
+* **Cheatcodes** (`vm.deal`, `vm.prank`) are only available in tests, not in production.
 
 ---
 
@@ -107,31 +99,29 @@ make test-ethereum
 
 ### Enter the Lottery
 
-Send exactly the entry price in ETH:
-
 ```solidity
 lottery.enterLottery{value: entryPrice}();
 ```
 
 ### Winner Selection
 
-* Automatically triggered by Chainlink Automation when the lottery period ends.
+* Triggered automatically by Chainlink Automation when the lottery period ends.
 * Uses **Chainlink VRF v2 Plus** for a provably fair winner.
 
 ### Withdraw Fallback
 
-If a direct ETH transfer fails:
-
 ```solidity
 lottery.winnerFallbackWithdrawal();
 ```
+
+*Use if a direct ETH transfer fails.*
 
 ---
 
 ## Events
 
 * `WinnerWithdrawnPrice(address indexed winner, uint256 price)` – emitted on fallback withdrawal.
-* Other events are added for success/failure logging of winner payments in MockLottery for testing.
+* Additional events for logging winner payments in MockLottery tests.
 
 ---
 
@@ -139,7 +129,7 @@ lottery.winnerFallbackWithdrawal();
 
 * **ReentrancyGuard** protects against reentrancy attacks.
 * **SafeTransferLib** ensures safe ETH transfers, preventing stuck ETH in the contract.
-* ETH payouts are **atomic**, and any failed payments are recoverable via fallback withdrawal.
+* ETH payouts are **atomic**, and failed payments can be recovered via fallback withdrawal.
 
 ---
 
@@ -147,12 +137,12 @@ lottery.winnerFallbackWithdrawal();
 
 1. **VRF v2 Plus**: provides secure randomness for winner selection.
 2. **Automation**: automates upkeep without external scripts.
-3. The contract can **programmatically**:
+3. Programmatically, the contract can:
 
    * Create VRF subscriptions
    * Fund VRF subscriptions with LINK
    * Register with Automation registry
-4. This reduces manual setup and ensures the lottery is fully autonomous once deployed.
+4. Reduces manual setup and ensures the lottery is fully autonomous once deployed.
 
 ---
 

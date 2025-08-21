@@ -37,7 +37,6 @@ contract LotteryDeploy is Script {
         return lottery;
     }
 
-   
     //call after run() ...
     function deployRegister(address lotteryAddress) public returns (address) {
         address configAddress = deployedContractsNotFunded[lotteryAddress];
@@ -70,7 +69,7 @@ contract LotteryDeploy is Script {
     //this function should be called by same user who called run,
     // once they have min link amount minted to their account
     // and they have created and minted the register
-    function fundAndStartLottery(address lotteryAddress) external {    
+    function fundAndStartLottery(address lotteryAddress) external {
         address configAddress = deployedContractsNotFunded[lotteryAddress];
         if (configAddress == address(0) || NetworkConfig(configAddress).owner() != msg.sender) {
             revert Deploy__noLotteryToFund();
@@ -80,8 +79,7 @@ contract LotteryDeploy is Script {
         if (registerAddress == address(0)) {
             revert Deploy__registerNotInitialiazed();
         }
-        if (registerAddress.balance == 0)
-        {
+        if (registerAddress.balance == 0) {
             revert Deploy__registerNotFunded();
         }
         delete deployedContractsNotFunded[lotteryAddress];
