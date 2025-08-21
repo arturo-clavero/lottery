@@ -3,8 +3,10 @@ pragma solidity ^0.8.13;
 
 import {Lottery} from "../../src/Lottery.sol";
 import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkToken.sol";
+import {LotteryConstants} from "../../src/lib/LotteryConstants.sol";
+import {Test, console} from "forge-std/Test.sol";
 
-contract LotteryMockTest is Lottery {
+contract LotteryMockTest is Lottery, Test {
     constructor(
         uint256 entryPrice_,
         uint256 length_,
@@ -32,10 +34,14 @@ contract LotteryMockTest is Lottery {
     event WinnerPaidPrice(address indexed winner, uint256 price);
     event WinnerInvalidPayment(address indexed winner, uint256 price);
 
+    //same as super.fulfillRandomWords(),
+    // but we emit events for testing, unnecessary gas in real contract
+    // when forking sepolia we vm.deal() the price to the winner as call doesnt increase the balance of our fake address winner
     function testFulfillRandomWords(uint256[] calldata randomWords) external {
         uint256 playersLength = players.length;
         address winner = players[randomWords[0] % playersLength];
         uint256 price = playersLength * i_entryPrice;
+        require(address(this).balance >= price, "Not enough funds in contract");
         startLottery();
 
         (bool success,) = payable(winner).call{value: price}("");
@@ -43,6 +49,9 @@ contract LotteryMockTest is Lottery {
             pending_payouts[winner] += price;
             emit WinnerInvalidPayment(winner, price);
         } else {
+            if (block.chainid == LotteryConstants.CHAIN_ID_SEPOLIA) {
+                vm.deal(winner, price);
+            }
             emit WinnerPaidPrice(winner, price);
         }
     }
@@ -53,7 +62,7 @@ contract LotteryMockTest is Lottery {
         }
         funded = true;
         LinkToken(token).transferFrom(msg.sender, address(this), amount);
-      //  mockTopUpSubscription(amount); !
+        //  mockTopUpSubscription(amount); !
         startLottery();
     }
 

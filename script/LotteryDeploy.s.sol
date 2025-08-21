@@ -11,7 +11,7 @@ import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkT
 
 contract LotteryDeploy is Script {
     //mapping lottery to -> config address...
-    mapping(address=>address) private deployedContractsNotFunded;
+    mapping(address => address) private deployedContractsNotFunded;
 
     error Deploy__noLotteryToFund();
 
@@ -41,10 +41,11 @@ contract LotteryDeploy is Script {
 
     //this function should be called by same user who called run,
     // once they have min link amount minted to their account
-    function fundAndStartLottery(address lotteryAddress) external{
+    function fundAndStartLottery(address lotteryAddress) external {
         address configAddress = deployedContractsNotFunded[lotteryAddress];
-        if (configAddress == address(0) || NetworkConfig(configAddress).owner() != msg.sender)
+        if (configAddress == address(0) || NetworkConfig(configAddress).owner() != msg.sender) {
             revert Deploy__noLotteryToFund();
+        }
         delete deployedContractsNotFunded[lotteryAddress];
         address lintTokenAddress = NetworkConfig(configAddress).i_linkTokenAddress();
         LinkToken(lintTokenAddress).approve(lotteryAddress, LotteryConstants.MIN_LINK_AMOUNT);

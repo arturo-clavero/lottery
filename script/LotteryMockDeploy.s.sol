@@ -11,22 +11,25 @@ import {LinkToken} from "@chainlink/contracts/src/v0.8/shared/token/ERC677/LinkT
 
 contract LotteryMockDeploy is Script {
     NetworkConfig public config;
+    Register public register;
+
+    error MockDeploy__registerNotInitialiazed();
+    error MockDeploy__configNotInitialiazed();
 
     function run(address deployer) public returns (LotteryMockTest) {
         vm.startBroadcast(deployer);
-
         if (address(config) == address(0)) {
             config = new NetworkConfig();
         }
 
-        Register register = new Register(
+        register = new Register(
             LinkTokenInterface(config.i_linkTokenAddress()), AutomationRegistrarInterface(config.i_registrarAddress())
         );
 
         if (config.i_isLocalAnvil() == true) {
             vm.roll(1);
         } //pass createsubscription (else current block n - 1 underflows)
- 
+
         LotteryMockTest lotteryMock = new LotteryMockTest(
             LotteryConstants.ENTRY_PRICE,
             LotteryConstants.LENGTH,
@@ -46,7 +49,17 @@ contract LotteryMockDeploy is Script {
         vm.stopBroadcast();
 
         config.updateUpkeepContract(address(lotteryMock));
-        register.registerAndPredictID(config.getRegisterParams());
         return lotteryMock;
+    }
+
+    //call after run() and funding register...
+    function setRegister() public {
+        if (address(register) == address(0)) {
+            revert MockDeploy__registerNotInitialiazed();
+        }
+        if (address(config) == address(0)) {
+            revert MockDeploy__configNotInitialiazed();
+        }
+        register.registerAndPredictID(config.getRegisterParams());
     }
 }

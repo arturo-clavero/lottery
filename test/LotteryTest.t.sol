@@ -66,9 +66,12 @@ contract LotteryTest is Test {
     }
 
     function setUp() external {
-        deployer = get_deployer();
         LotteryMockDeploy lotteryDeploy = new LotteryMockDeploy();
+        setDeployer();
         lottery = lotteryDeploy.run(deployer);
+        deal(lotteryDeploy.config().i_linkTokenAddress(), address(lotteryDeploy.register()), 1_000_000 ether);
+        lotteryDeploy.setRegister();
+        vm.allowCheatcodes(address(lottery));
     }
 
     //constructor:
@@ -319,14 +322,15 @@ contract LotteryTest is Test {
         return nPlayers;
     }
 
-    function get_deployer() private pure returns (address){
-        if (block.chainid == LotteryConstants.CHAIN_ID_SEPOLIA){
-            return LotteryConstants.LINKWHALE_SEPOLIA;
+    function setDeployer() private {
+        uint256 chainid = block.chainid;
+        if (chainid == LotteryConstants.CHAIN_ID_SEPOLIA) {
+            deployer = vm.addr(12);
+            deal(LotteryConstants.LINK_TOKEN_ADDRESS_SEPOLIA, deployer, 1_000_000 ether);
+        } else if (chainid == LotteryConstants.CHAIN_ID_ETHEREUM) {
+            deployer = LotteryConstants.LINKWHALE_ETHEREUM;
+        } else {
+            deployer = vm.addr(12);
         }
-        else if (block.chainid == LotteryConstants.CHAIN_ID_ETHEREUM){
-            return LotteryConstants.LINKWHALE_ETHEREUM;
-        }
-        else return vm.addr(12);
     }
-
 }
