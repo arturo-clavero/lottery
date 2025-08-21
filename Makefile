@@ -36,7 +36,7 @@ anvil:
 	fi
 
 # Run all tests
-test-nv: test-local-nv test-sepolia test-ethereum
+test-nv: test-local-nv test-sepolia-nv test-ethereum-nv
 
 test: test-local test-sepolia test-ethereum
 
@@ -69,7 +69,7 @@ _run-local:
 		kill $$anvil_pid; \
 	fi
 
-# Sepolia fork test
+# Sepolia fork test high verbosity
 test-sepolia:
 ifeq ($(RPC_SEPOLIA),)
 	@echo "⚠️ RPC_SEPOLIA not set! Skipping Sepolia fork tests."
@@ -78,7 +78,17 @@ else
 	forge test --fork-url ${RPC_SEPOLIA} $(ARGS) -vvvv
 endif
 
-# Ethereum fork test
+# Sepolia fork test no verbosity
+test-sepolia-nv:
+ifeq ($(RPC_SEPOLIA),)
+	@echo "⚠️ RPC_SEPOLIA not set! Skipping Sepolia fork tests."
+else
+	@echo "Testing on Sepolia fork..."
+	forge test --fork-url ${RPC_SEPOLIA} $(ARGS)
+endif
+
+
+# Ethereum fork test high verbosity
 test-ethereum:
 ifeq ($(RPC_MAINNET),)
 	@echo "⚠️ RPC_MAINNET not set! Skipping Ethereum fork tests."
@@ -87,5 +97,15 @@ else
 	forge test --fork-url ${RPC_MAINNET} $(ARGS) -vvvv
 endif
 
+# Ethereum fork test no verbosity
+test-ethereum-nv:
+ifeq ($(RPC_MAINNET),)
+	@echo "⚠️ RPC_MAINNET not set! Skipping Ethereum fork tests."
+else
+	@echo "Testing on Ethereum fork..."
+	forge test --fork-url ${RPC_MAINNET} $(ARGS)
+endif
+
 
 .PHONY: clean lib install build all
+

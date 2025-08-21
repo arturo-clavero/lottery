@@ -84,10 +84,14 @@ RPC_SEPOLIA=<your_rpc_url>
 Run tests:
 
 ```bash
-make test          # all networks
-make test-local    # local only
-make test-sepolia  # Sepolia fork only
-make test-ethereum # Mainnet fork only
+make test             # all networks
+make test-nv          # all networks no verbosity
+make test-local       # local only
+make test-local-nv    # local only no verbosity
+make test-sepolia     # Sepolia fork only
+make test-sepolia-nv  # Sepolia fork only no verbosity
+make test-ethereum    # Mainnet fork only
+make test-ethereum-nv # Mainnet fork only no verbosity
 ```
 
 * Foundry tests simulate random words and automate ETH transfers.
