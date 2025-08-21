@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// An example of a consumer contract that also owns and manages the subscription
+// An example consumer contract that owns and manages a Chainlink VRF subscription
 pragma solidity ^0.8.13;
 
 import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/shared/interfaces/LinkTokenInterface.sol";
@@ -10,28 +10,46 @@ import {Lottery} from "./Lottery.sol";
 import {VRFCoordinatorV2_5Mock} from "@chainlink/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
 
 /**
- * Request testnet LINK and ETH here: https://faucets.chain.link/
- * Find information on LINK Token Contracts and get the latest ETH and LINK faucets here: https://docs.chain.link/docs/link-token-contracts/
- */
-
-/**
- * THIS IS AN EXAMPLE CONTRACT THAT USES HARDCODED VALUES FOR CLARITY.
- * THIS IS AN EXAMPLE CONTRACT THAT USES UN-AUDITED CODE.
- * DO NOT USE THIS CODE IN PRODUCTION.
+ * @notice Example contract demonstrating a VRFv2 subscription manager
+ * @dev Uses hardcoded values for clarity and is not audited. Do not use in production.
  */
 contract VRFv2PlusSubscriptionManager is VRFConsumerBaseV2Plus {
-    LinkTokenInterface private immutable I_LINKTOKEN;
-    bytes32 private immutable i_keyHash;
-    uint32 private immutable i_callbackGasLimit;
-    uint16 private immutable i_requestConfirmations = 3;
-    uint32 private immutable i_numWords = 2;
-    Lottery lottery;
 
-    // Storage parameters
-    uint256[] public s_randomWords;
+    /// @notice Number of confirmations to wait for VRF
+    uint16 private immutable i_requestConfirmations = 3;
+
+    /// @notice Key hash for VRF requests
+    bytes32 private immutable i_keyHash;
+
+    /// @notice Gas limit for VRF callback
+    uint32 private immutable i_callbackGasLimit;
+
+    /// @notice Number of random words requested
+    uint32 private immutable i_numWords = 2;
+
+    /// @notice LINK token interface
+    LinkTokenInterface private immutable I_LINKTOKEN;
+
+    /// @notice VRF Coordinator request ID
     uint256 public s_requestId;
+
+    /// @notice Subscription ID for VRF
     uint256 public s_subscriptionId;
 
+    /// @notice Random words returned by VRF
+    uint256[] public s_randomWords;
+        
+    /// @notice Associated lottery contract
+    Lottery lottery;
+
+    /**
+     * @param vrfCoordinatorV2Plus VRF Coordinator address
+     * @param link_token_contract LINK token address
+     * @param keyHash VRF key hash
+     * @param callbackGasLimit Gas limit for fulfillRandomWords
+     * @param requestConfirmations Number of VRF confirmations
+     * @param numWords Number of random words to request
+     */
     constructor(
         address vrfCoordinatorV2Plus,
         address link_token_contract,
@@ -46,13 +64,41 @@ contract VRFv2PlusSubscriptionManager is VRFConsumerBaseV2Plus {
         i_callbackGasLimit = callbackGasLimit;
         i_requestConfirmations = requestConfirmations;
         i_numWords = numWords;
-        //Create a new subscription when you deploy the contract.
+
+        // Create a new subscription at deployment
         _createNewSubscription();
     }
 
-    // Assumes the subscription is funded sufficiently.
+    /// @notice Adds a consumer contract to the subscription
+    /// @param consumerAddress Address of consumer contract
+    function addConsumer(address consumerAddress) external onlyOwner {
+        s_vrfCoordinator.addConsumer(s_subscriptionId, consumerAddress);
+    }
+
+    /// @notice Removes a consumer contract from the subscription
+    /// @param consumerAddress Address of consumer contract
+    function removeConsumer(address consumerAddress) external onlyOwner {
+        s_vrfCoordinator.removeConsumer(s_subscriptionId, consumerAddress);
+    }
+
+    /// @notice Cancels the subscription and sends remaining LINK to a wallet
+    /// @param receivingWallet Address to receive remaining LINK
+    function cancelSubscription(address receivingWallet) external onlyOwner {
+        s_vrfCoordinator.cancelSubscription(s_subscriptionId, receivingWallet);
+        s_subscriptionId = 0;
+    }
+
+    /// @notice Withdraw LINK from this contract
+    /// @param amount Amount of LINK to withdraw
+    /// @param to Recipient address
+    function withdraw(uint256 amount, address to) external onlyOwner {
+        I_LINKTOKEN.transfer(to, amount);
+    }
+
+
+    /// @notice Requests random words from Chainlink VRF
+    /// @dev Reverts if subscription is not funded
     function requestRandomWords() internal onlyOwner {
-        // Will revert if subscription is not set and funded.
         s_requestId = s_vrfCoordinator.requestRandomWords(
             VRFV2PlusClient.RandomWordsRequest({
                 keyHash: i_keyHash,
@@ -60,53 +106,37 @@ contract VRFv2PlusSubscriptionManager is VRFConsumerBaseV2Plus {
                 requestConfirmations: i_requestConfirmations,
                 callbackGasLimit: i_callbackGasLimit,
                 numWords: i_numWords,
-                extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
+                extraArgs: VRFV2PlusClient._argsToBytes(
+                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
+                )
             })
         );
     }
 
-    function fulfillRandomWords(uint256, /* requestId */ uint256[] calldata randomWords) internal virtual override {
+    /// @notice VRF callback to receive random words
+    /// @param randomWords Array of random numbers returned by VRF
+    function fulfillRandomWords(
+        uint256, /* requestId */
+        uint256[] calldata randomWords
+    ) internal virtual override {
         s_randomWords = randomWords;
     }
 
-    // Create a new subscription when the contract is initially deployed.
-    function _createNewSubscription() private onlyOwner {
-        s_subscriptionId = s_vrfCoordinator.createSubscription();
-        // Add this contract as a consumer of its own subscription.
-        s_vrfCoordinator.addConsumer(s_subscriptionId, address(this));
-    }
-
-    // Assumes this contract owns link.
-    // 1000000000000000000 = 1 LINK
+    /// @notice Fund the subscription with LINK
+    /// @param amount Amount of LINK to fund (in wei, 1 LINK = 10**18)
     function topUpSubscription(uint256 amount) internal onlyOwner {
         I_LINKTOKEN.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subscriptionId));
     }
 
+    /// @notice Mock top-up function for testing with VRFCoordinatorV2_5Mock
+    /// @param amount Amount to fund
     function mockTopUpSubscription(uint256 amount) internal onlyOwner {
         VRFCoordinatorV2_5Mock(address(s_vrfCoordinator)).fundSubscription(s_subscriptionId, amount);
-
-        // s_vrfCoordinator.fundSubscription(s_subscriptionId, amount);
     }
 
-    function addConsumer(address consumerAddress) external onlyOwner {
-        // Add a consumer contract to the subscription.
-        s_vrfCoordinator.addConsumer(s_subscriptionId, consumerAddress);
-    }
-
-    function removeConsumer(address consumerAddress) external onlyOwner {
-        // Remove a consumer contract from the subscription.
-        s_vrfCoordinator.removeConsumer(s_subscriptionId, consumerAddress);
-    }
-
-    function cancelSubscription(address receivingWallet) external onlyOwner {
-        // Cancel the subscription and send the remaining LINK to a wallet address.
-        s_vrfCoordinator.cancelSubscription(s_subscriptionId, receivingWallet);
-        s_subscriptionId = 0;
-    }
-
-    // Transfer this contract's funds to an address.
-    // 1000000000000000000 = 1 LINK
-    function withdraw(uint256 amount, address to) external onlyOwner {
-        I_LINKTOKEN.transfer(to, amount);
+    /// @notice Creates a new VRF subscription and adds this contract as consumer
+    function _createNewSubscription() private onlyOwner {
+        s_subscriptionId = s_vrfCoordinator.createSubscription();
+        s_vrfCoordinator.addConsumer(s_subscriptionId, address(this));
     }
 }
